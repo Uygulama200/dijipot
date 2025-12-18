@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
-import { Camera, ArrowLeft, QrCode, Share2, Upload, Image, Users, Trash2, Download, Copy, Loader2, X } from 'lucide-react'
+import { Camera, ArrowLeft, QrCode, Share2, Upload, Image, Users, Download, Copy, Loader2, X, CheckCircle, AlertCircle } from 'lucide-react'
 import { supabase, type Event, type Photo, type Participant } from '@/lib/supabase'
 import toast from 'react-hot-toast'
 import { useDropzone } from 'react-dropzone'
@@ -16,10 +16,12 @@ export default function EventDetailPage() {
 
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
+  const [processing, setProcessing] = useState(false)
   const [event, setEvent] = useState<Event | null>(null)
   const [photos, setPhotos] = useState<Photo[]>([])
   const [participants, setParticipants] = useState<Participant[]>([])
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('')
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number; detecting: number }>({ current: 0, total: 0, detecting: 0 })
 
   useEffect(() => {
     loadEventData()
@@ -82,14 +84,38 @@ export default function EventDetailPage() {
     }
   }
 
+  // Yüz tespiti yap
+  const detectFacesInPhoto = async (photoId: string, imageUrl: string) => {
+    try {
+      const response = await fetch('/api/detect-faces', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photoId, imageUrl }),
+      })
+      const data = await response.json()
+      return data.faceCount || 0
+    } catch (error) {
+      console.error('Face detection error:', error)
+      return 0
+    }
+  }
+
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (!event) return
     
     setUploading(true)
+    setUploadProgress({ current: 0, total: acceptedFiles.length, detecting: 0 })
+    
     let uploadedCount = 0
+    let totalFaces = 0
+    const uploadedPhotos: { id: string; url: string }[] = []
 
     try {
-      for (const file of acceptedFiles) {
+      // 1. Önce tüm fotoğrafları yükle
+      for (let i = 0; i < acceptedFiles.length; i++) {
+        const file = acceptedFiles[i]
+        setUploadProgress(prev => ({ ...prev, current: i + 1 }))
+
         const fileExt = file.name.split('.').pop()
         const fileName = `${eventId}/${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`
 
@@ -106,27 +132,47 @@ export default function EventDetailPage() {
           .from('photos')
           .getPublicUrl(fileName)
 
-        await supabase.from('photos').insert({
-          event_id: eventId,
-          original_url: publicUrl,
-          thumbnail_url: publicUrl,
-        })
+        const { data: photoData, error: insertError } = await supabase
+          .from('photos')
+          .insert({
+            event_id: eventId,
+            original_url: publicUrl,
+            thumbnail_url: publicUrl,
+          })
+          .select()
+          .single()
 
-        uploadedCount++
+        if (!insertError && photoData) {
+          uploadedPhotos.push({ id: photoData.id, url: publicUrl })
+          uploadedCount++
+        }
       }
 
-      // Update photo count
+      // 2. Yüz tespiti yap
+      setUploading(false)
+      setProcessing(true)
+      
+      for (let i = 0; i < uploadedPhotos.length; i++) {
+        setUploadProgress(prev => ({ ...prev, detecting: i + 1 }))
+        const photo = uploadedPhotos[i]
+        const faceCount = await detectFacesInPhoto(photo.id, photo.url)
+        totalFaces += faceCount
+      }
+
+      // 3. Event photo count güncelle
       await supabase
         .from('events')
         .update({ photo_count: (event.photo_count || 0) + uploadedCount })
         .eq('id', eventId)
 
-      toast.success(`${uploadedCount} fotoğraf yüklendi`)
+      toast.success(`${uploadedCount} fotoğraf yüklendi, ${totalFaces} yüz tespit edildi`)
       loadEventData()
     } catch (error) {
       toast.error('Yükleme hatası')
     } finally {
       setUploading(false)
+      setProcessing(false)
+      setUploadProgress({ current: 0, total: 0, detecting: 0 })
     }
   }, [event, eventId])
 
@@ -135,7 +181,7 @@ export default function EventDetailPage() {
     accept: {
       'image/*': ['.jpeg', '.jpg', '.png', '.webp']
     },
-    disabled: uploading
+    disabled: uploading || processing
   })
 
   const copyLink = () => {
@@ -161,6 +207,10 @@ export default function EventDetailPage() {
     if (!confirm('Bu fotoğrafı silmek istediğinize emin misiniz?')) return
 
     try {
+      // Önce face_tokens sil
+      await supabase.from('face_tokens').delete().eq('photo_id', photoId)
+      
+      // Sonra fotoğrafı sil
       await supabase.from('photos').delete().eq('id', photoId)
       
       await supabase
@@ -276,13 +326,28 @@ export default function EventDetailPage() {
                 {...getRootProps()}
                 className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
                   isDragActive ? 'border-primary bg-primary-50' : 'border-gray-300 hover:border-primary'
-                } ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                } ${(uploading || processing) ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <input {...getInputProps()} />
                 {uploading ? (
                   <div className="flex flex-col items-center">
                     <Loader2 className="h-12 w-12 text-primary animate-spin mb-4" />
-                    <p className="text-secondary-600">Yükleniyor...</p>
+                    <p className="text-secondary-600 font-medium">
+                      Yükleniyor... ({uploadProgress.current}/{uploadProgress.total})
+                    </p>
+                  </div>
+                ) : processing ? (
+                  <div className="flex flex-col items-center">
+                    <div className="relative mb-4">
+                      <Loader2 className="h-12 w-12 text-green-500 animate-spin" />
+                      <CheckCircle className="h-6 w-6 text-green-500 absolute -right-1 -bottom-1" />
+                    </div>
+                    <p className="text-secondary-600 font-medium">
+                      Yüzler tespit ediliyor... ({uploadProgress.detecting}/{uploadProgress.total})
+                    </p>
+                    <p className="text-sm text-secondary-400 mt-1">
+                      Bu işlem biraz sürebilir
+                    </p>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center">
@@ -295,6 +360,15 @@ export default function EventDetailPage() {
                     </p>
                   </div>
                 )}
+              </div>
+              
+              {/* Bilgi notu */}
+              <div className="mt-4 bg-blue-50 rounded-lg p-3 flex items-start gap-2">
+                <AlertCircle className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-blue-700">
+                  Yüklenen fotoğraflarda yüz tanıma yapılır. Misafirler selfie çektiğinde, 
+                  sadece kendilerinin olduğu fotoğrafları görebilirler.
+                </p>
               </div>
             </div>
 
@@ -352,10 +426,13 @@ export default function EventDetailPage() {
                           <Users className="h-5 w-5 text-secondary-500" />
                         </div>
                       )}
-                      <div>
+                      <div className="flex-1">
                         <p className="font-medium text-secondary-800">{p.phone || 'Telefon yok'}</p>
-                        <p className="text-sm text-secondary-500">{p.photo_count} eşleşme</p>
+                        <p className="text-sm text-secondary-500">{p.photo_count} fotoğraf eşleşti</p>
                       </div>
+                      {p.photo_count > 0 && (
+                        <CheckCircle className="h-5 w-5 text-green-500" />
+                      )}
                     </div>
                   ))}
                 </div>

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { Camera, Download, Image, X, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import { Camera, Download, Image, X, ChevronLeft, ChevronRight, Loader2, RefreshCw } from 'lucide-react'
 import { supabase, type Photo, type Participant, type Event } from '@/lib/supabase'
 import toast from 'react-hot-toast'
 
@@ -11,6 +11,7 @@ export default function GalleryPage() {
   const participantId = params.id as string
 
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [participant, setParticipant] = useState<Participant | null>(null)
   const [event, setEvent] = useState<Event | null>(null)
   const [photos, setPhotos] = useState<Photo[]>([])
@@ -47,21 +48,62 @@ export default function GalleryPage() {
         setEvent(eventData)
       }
 
-      // Get photos (for MVP, show all event photos)
-      // In production, this would be filtered by face matching
-      const { data: photosData } = await supabase
-        .from('photos')
-        .select('*')
-        .eq('event_id', participantData.event_id)
-        .order('created_at', { ascending: false })
+      // Get matched photos (from participant_matches table)
+      const { data: matchesData } = await supabase
+        .from('participant_matches')
+        .select('photo_id, confidence')
+        .eq('participant_id', participantId)
+        .order('confidence', { ascending: false })
 
-      if (photosData) {
-        setPhotos(photosData)
+      if (matchesData && matchesData.length > 0) {
+        // Get full photo details for matched photos
+        const photoIds = matchesData.map(m => m.photo_id)
+        
+        const { data: photosData } = await supabase
+          .from('photos')
+          .select('*')
+          .in('id', photoIds)
+
+        if (photosData) {
+          setPhotos(photosData)
+        }
+      } else {
+        setPhotos([])
       }
     } catch (error) {
       console.error('Error loading data:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const refreshMatches = async () => {
+    if (!participant || !event) return
+    
+    setRefreshing(true)
+    
+    try {
+      // Yeniden eşleştirme yap
+      const response = await fetch('/api/match-faces', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          participantId: participant.id,
+          selfieUrl: participant.selfie_url,
+          eventId: event.id,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        toast.success(`${data.matchCount} fotoğraf bulundu`)
+        loadData()
+      }
+    } catch (error) {
+      toast.error('Yenileme hatası')
+    } finally {
+      setRefreshing(false)
     }
   }
 
@@ -132,15 +174,25 @@ export default function GalleryPage() {
               <Camera className="h-6 w-6 text-primary" />
               <span className="text-lg font-bold text-secondary-800">Dijipot</span>
             </div>
-            {photos.length > 0 && (
+            <div className="flex items-center gap-2">
               <button
-                onClick={downloadAll}
-                className="btn-primary text-sm flex items-center gap-2"
+                onClick={refreshMatches}
+                disabled={refreshing}
+                className="p-2 text-secondary-500 hover:text-secondary-700 disabled:opacity-50"
+                title="Yeni fotoğrafları kontrol et"
               >
-                <Download className="h-4 w-4" />
-                Tümünü İndir
+                <RefreshCw className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
               </button>
-            )}
+              {photos.length > 0 && (
+                <button
+                  onClick={downloadAll}
+                  className="btn-primary text-sm flex items-center gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Tümünü İndir
+                </button>
+              )}
+            </div>
           </div>
           {event && (
             <p className="text-sm text-secondary-500 mt-2">{event.name}</p>
@@ -156,14 +208,23 @@ export default function GalleryPage() {
             <h2 className="text-xl font-semibold text-secondary-800 mb-2">
               Henüz Fotoğrafınız Yok
             </h2>
-            <p className="text-secondary-500 max-w-md mx-auto">
-              Fotoğraflar yüklendikçe ve eşleştirildikçe burada görünecek. 
-              Sayfayı daha sonra tekrar kontrol edin.
+            <p className="text-secondary-500 max-w-md mx-auto mb-6">
+              Fotoğraflar yüklendikçe ve yüzünüzle eşleştirildikçe burada görünecek.
             </p>
+            <button
+              onClick={refreshMatches}
+              disabled={refreshing}
+              className="btn-outline inline-flex items-center gap-2"
+            >
+              <RefreshCw className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
+              {refreshing ? 'Kontrol ediliyor...' : 'Yeni fotoğrafları kontrol et'}
+            </button>
           </div>
         ) : (
           <>
-            <p className="text-secondary-500 mb-4">{photos.length} fotoğraf bulundu</p>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-secondary-500">{photos.length} fotoğrafınız bulundu 🎉</p>
+            </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
               {photos.map((photo, index) => (
                 <div

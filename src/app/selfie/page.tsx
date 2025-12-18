@@ -19,6 +19,7 @@ export default function SelfiePage() {
   const [showPhoneModal, setShowPhoneModal] = useState(false)
   const [phone, setPhone] = useState('')
   const [loading, setLoading] = useState(false)
+  const [matchingStatus, setMatchingStatus] = useState<string>('')
   const [cameraError, setCameraError] = useState(false)
 
   useEffect(() => {
@@ -86,6 +87,7 @@ export default function SelfiePage() {
     if (!capturedImage || !eventCode) return
 
     setLoading(true)
+    setMatchingStatus('Selfie yükleniyor...')
 
     try {
       // Get event
@@ -121,6 +123,8 @@ export default function SelfiePage() {
         .from('selfies')
         .getPublicUrl(fileName)
 
+      setMatchingStatus('Kayıt oluşturuluyor...')
+
       // Create participant
       const { data: participant, error: participantError } = await supabase
         .from('participants')
@@ -144,13 +148,41 @@ export default function SelfiePage() {
         .update({ participant_count: (event.participant_count || 0) + 1 })
         .eq('id', event.id)
 
-      toast.success('Kaydınız alındı!')
+      setMatchingStatus('Yüzünüz fotoğraflarla eşleştiriliyor...')
+
+      // Yüz eşleştirme yap
+      try {
+        const matchResponse = await fetch('/api/match-faces', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            participantId: participant.id,
+            selfieUrl: publicUrl,
+            eventId: event.id,
+          }),
+        })
+
+        const matchData = await matchResponse.json()
+
+        if (matchData.success) {
+          if (matchData.matchCount > 0) {
+            toast.success(`${matchData.matchCount} fotoğrafınız bulundu!`)
+          } else {
+            toast.success('Kaydınız alındı! Fotoğraflar yüklendikçe eşleşmeler görünecek.')
+          }
+        }
+      } catch (matchError) {
+        console.error('Match error:', matchError)
+        // Eşleştirme hatası olsa bile devam et
+      }
+
       router.push(`/bekle/${participant.id}`)
     } catch (error) {
       console.error('Error:', error)
       toast.error('Bir hata oluştu')
     } finally {
       setLoading(false)
+      setMatchingStatus('')
     }
   }
 
@@ -236,55 +268,58 @@ export default function SelfiePage() {
       {showPhoneModal && (
         <div className="fixed inset-0 bg-black/80 flex items-end sm:items-center justify-center p-4 z-50">
           <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-md p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-secondary-800">
-                Telefon Numaranız
-              </h2>
-              <button onClick={() => setShowPhoneModal(false)} className="text-secondary-400">
-                <X className="h-6 w-6" />
-              </button>
-            </div>
+            {loading ? (
+              <div className="text-center py-8">
+                <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
+                <p className="text-secondary-700 font-medium">{matchingStatus}</p>
+                <p className="text-sm text-secondary-500 mt-2">Bu işlem birkaç saniye sürebilir</p>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-semibold text-secondary-800">
+                    Telefon Numaranız
+                  </h2>
+                  <button onClick={() => setShowPhoneModal(false)} className="text-secondary-400">
+                    <X className="h-6 w-6" />
+                  </button>
+                </div>
 
-            <p className="text-secondary-500 mb-4">
-              Fotoğraflarınız hazır olduğunda WhatsApp ile bildirim alın.
-            </p>
+                <p className="text-secondary-500 mb-4">
+                  Fotoğraflarınız hazır olduğunda WhatsApp ile bildirim alın.
+                </p>
 
-            <div className="relative mb-6">
-              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-secondary-400" />
-              <input
-                type="tel"
-                className="input-field pl-10"
-                placeholder="05XX XXX XX XX"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
-            </div>
+                <div className="relative mb-6">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-secondary-400" />
+                  <input
+                    type="tel"
+                    className="input-field pl-10"
+                    placeholder="05XX XXX XX XX"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                  />
+                </div>
 
-            <button
-              onClick={submitParticipant}
-              disabled={loading}
-              className="btn-primary w-full flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Kaydediliyor...
-                </>
-              ) : (
-                'Kaydet ve Devam Et'
-              )}
-            </button>
+                <button
+                  onClick={submitParticipant}
+                  disabled={loading}
+                  className="btn-primary w-full flex items-center justify-center gap-2"
+                >
+                  Kaydet ve Fotoğraflarımı Bul
+                </button>
 
-            <button
-              onClick={() => {
-                setPhone('')
-                submitParticipant()
-              }}
-              disabled={loading}
-              className="w-full mt-3 text-secondary-500 text-sm hover:text-secondary-700"
-            >
-              Telefon numarası olmadan devam et
-            </button>
+                <button
+                  onClick={() => {
+                    setPhone('')
+                    submitParticipant()
+                  }}
+                  disabled={loading}
+                  className="w-full mt-3 text-secondary-500 text-sm hover:text-secondary-700"
+                >
+                  Telefon numarası olmadan devam et
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
