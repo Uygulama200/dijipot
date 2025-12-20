@@ -15,11 +15,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'photoId ve imageUrl gerekli' }, { status: 400 })
     }
 
-    console.log`Found ${faces.length} faces`)
+    console.log('Detecting faces for photo:', photoId)
 
     // Face++ ile yüzleri tespit et
     const faces = await detectFaces(imageUrl)
-
+    
     console.log(`Found ${faces.length} faces`)
 
     // Her yüzü veritabanına kaydet
