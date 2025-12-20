@@ -26,18 +26,31 @@ async function detectFace(imageUrl: string): Promise<string | null> {
 }
 
 async function compareFaces(token1: string, token2: string): Promise<number> {
-  const formData = new FormData()
-  formData.append('api_key', FACEPP_API_KEY!)
-  formData.append('api_secret', FACEPP_API_SECRET!)
-  formData.append('face_token1', token1)
-  formData.append('face_token2', token2)
+  // FormData yerine URLSearchParams kullan (Node.js'de daha güvenilir)
+  const params = new URLSearchParams()
+  params.append('api_key', FACEPP_API_KEY!)
+  params.append('api_secret', FACEPP_API_SECRET!)
+  params.append('face_token1', token1)
+  params.append('face_token2', token2)
 
   const res = await fetch('https://api-us.faceplusplus.com/facepp/v3/compare', {
     method: 'POST',
-    body: formData,
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: params.toString(),
   })
 
   const data = await res.json()
+  
+  // 🔍 HATA KONTROLÜ EKLE
+  console.log('🎭 Face++ Compare Response:', JSON.stringify(data))
+  
+  if (data.error_message) {
+    console.error('❌ Face++ Error:', data.error_message)
+    return 0
+  }
+  
   return data.confidence || 0
 }
 
