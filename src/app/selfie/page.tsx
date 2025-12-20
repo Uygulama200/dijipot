@@ -66,10 +66,9 @@ export default function SelfiePage() {
     canvas.width = video.videoWidth
     canvas.height = video.videoHeight
 
-    // Flip horizontally for selfie mirror effect
-    ctx.translate(canvas.width, 0)
-    ctx.scale(-1, 1)
-    ctx.drawImage(video, 0, 0)
+    // Video flip'li görünse de, fotoğrafı normal şekilde kaydet
+    // Böylece panel'deki fotoğraflarla eşleşir
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
 
     const imageData = canvas.toDataURL('image/jpeg', 0.8)
     setCapturedImage(imageData)
@@ -216,7 +215,12 @@ export default function SelfiePage() {
       <main className="flex-1 flex flex-col items-center justify-center px-4 pb-8">
         <div className="relative w-full max-w-sm aspect-square rounded-2xl overflow-hidden bg-black">
           {capturedImage ? (
-            <img src={capturedImage} alt="Captured" className="w-full h-full object-cover" />
+            <img 
+              src={capturedImage} 
+              alt="Captured" 
+              className="w-full h-full object-cover"
+              style={{ transform: 'scaleX(-1)' }}
+            />
           ) : (
             <video
               ref={videoRef}
