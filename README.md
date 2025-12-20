@@ -2,7 +2,7 @@
 
 Etkinlik fotoğraflarını yüz tanıma teknolojisiyle otomatik eşleştiren ve misafirlere anında ulaştıran platform.
 
-## 🚀 Özellikler
+## 🚀 Özellikler 
 
 - ✅ Fotoğrafçı paneli (kayıt, giriş, etkinlik yönetimi)
 - ✅ Otomatik QR kod oluşturma
