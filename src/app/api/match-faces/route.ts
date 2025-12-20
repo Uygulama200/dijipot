@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 
 const FACEPP_API_KEY = process.env.FACEPP_API_KEY
 const FACEPP_API_SECRET = process.env.FACEPP_API_SECRET
-const MATCH_THRESHOLD = 42
+const MATCH_THRESHOLD = 60
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
