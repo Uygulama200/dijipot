@@ -3,30 +3,44 @@ import { createClient } from '@supabase/supabase-js'
 
 const FACEPP_API_KEY = process.env.FACEPP_API_KEY
 const FACEPP_API_SECRET = process.env.FACEPP_API_SECRET
-const MATCH_THRESHOLD = 60 // Daha esnek eşleştirme
+const MATCH_THRESHOLD = 60
+const DELAY_MS = 1100 // 🔥 Face++ rate limit için 1.1 saniye bekle
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
+// 🔥 DELAY HELPER FONKSIYONU
+function delay(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
 async function detectFace(imageUrl: string): Promise<string | null> {
-  const formData = new FormData()
-  formData.append('api_key', FACEPP_API_KEY!)
-  formData.append('api_secret', FACEPP_API_SECRET!)
-  formData.append('image_url', imageUrl)
+  const params = new URLSearchParams()
+  params.append('api_key', FACEPP_API_KEY!)
+  params.append('api_secret', FACEPP_API_SECRET!)
+  params.append('image_url', imageUrl)
 
   const res = await fetch('https://api-us.faceplusplus.com/facepp/v3/detect', {
     method: 'POST',
-    body: formData,
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: params.toString(),
   })
 
   const data = await res.json()
+  
+  if (data.error_message) {
+    console.error('❌ Face++ Detect Error:', data.error_message)
+    return null
+  }
+  
   return data.faces?.[0]?.face_token || null
 }
 
 async function compareFaces(token1: string, token2: string): Promise<number> {
-  // FormData yerine URLSearchParams kullan (Node.js'de daha güvenilir)
   const params = new URLSearchParams()
   params.append('api_key', FACEPP_API_KEY!)
   params.append('api_secret', FACEPP_API_SECRET!)
@@ -43,7 +57,6 @@ async function compareFaces(token1: string, token2: string): Promise<number> {
 
   const data = await res.json()
   
-  // 🔍 HATA KONTROLÜ EKLE
   console.log('🎭 Face++ Compare Response:', JSON.stringify(data))
   
   if (data.error_message) {
@@ -79,7 +92,7 @@ export async function POST(request: NextRequest) {
     
     console.log('✅ Selfie face token:', selfieToken)
 
-    // 2. Event'e ait fotoğrafları getir (ÖNCE)
+    // 2. Event'e ait fotoğrafları getir
     console.log('📂 Fetching photos for event:', eventId)
     const { data: photos, error: photosError } = await supabase
       .from('photos')
@@ -101,7 +114,7 @@ export async function POST(request: NextRequest) {
     const photoIds = photos.map(p => p.id)
     console.log(`📷 Found ${photoIds.length} photos in event`)
 
-    // 3. Bu fotoğraflara ait face token'ları getir (SONRA)
+    // 3. Bu fotoğraflara ait face token'ları getir
     const { data: faceTokens, error: tokensError } = await supabase
       .from('face_tokens')
       .select('photo_id, face_token')
@@ -121,23 +134,28 @@ export async function POST(request: NextRequest) {
 
     console.log(`🎭 Found ${faceTokens.length} face tokens to compare`)
 
-    // 4. Yüz karşılaştırması
+    // 4. Yüz karşılaştırması - RATE LIMIT İLE
     const matches: string[] = []
     const checked = new Set<string>()
 
-    // İlk 20 face token ile karşılaştır (daha fazla eşleşme için)
-    for (const ft of faceTokens.slice(0, 20)) {
+    // 🔥 Sadece ilk 10 face token ile karşılaştır (rate limit için)
+    const tokensToCheck = faceTokens.slice(0, 10)
+    console.log(`⏱️ Checking ${tokensToCheck.length} tokens (with 1.1s delay between requests)`)
+
+    for (let i = 0; i < tokensToCheck.length; i++) {
+      const ft = tokensToCheck[i]
+      
       if (checked.has(ft.photo_id)) continue
       checked.add(ft.photo_id)
 
-      console.log(`🔄 Comparing with photo ${ft.photo_id}...`)
+      console.log(`🔄 [${i + 1}/${tokensToCheck.length}] Comparing with photo ${ft.photo_id}...`)
+      
       const confidence = await compareFaces(selfieToken, ft.face_token)
       console.log(`📊 Confidence: ${confidence}`)
 
       if (confidence >= MATCH_THRESHOLD) {
         matches.push(ft.photo_id)
         
-        // Eşleşmeyi kaydet
         const { error: insertError } = await supabase
           .from('participant_matches')
           .insert({
@@ -151,6 +169,12 @@ export async function POST(request: NextRequest) {
         } else {
           console.log(`✅ Match saved: ${confidence}%`)
         }
+      }
+
+      // 🔥 Son istek değilse BEKLE (rate limit için)
+      if (i < tokensToCheck.length - 1) {
+        console.log(`⏳ Waiting ${DELAY_MS}ms before next request...`)
+        await delay(DELAY_MS)
       }
     }
 
