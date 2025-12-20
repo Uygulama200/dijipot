@@ -117,28 +117,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Yüz eşleştirme hatası' }, { status: 500 })
   }
 }
-```
-
----
-
-## Nasıl Güncellersin:
-```
-1. GitHub → dijipot repo
-2. src/app/api/match-faces/route.ts dosyasına git
-3. Sağ üstte kalem ✏️ ikonuna tıkla
-4. TÜM içeriği sil
-5. Yukarıdaki kodu yapıştır
-6. "Commit changes" tıkla
-7. 1-2 dk bekle (Vercel deploy)
-8. Tekrar test et
-```
-
----
-
-## Ayrıca Kontrol:
-
-Vercel → Logs sekmesine git. Selfie çektiğinde loglar ne diyor?
-```
-- "Detecting face in selfie..." görüyor musun?
-- "Photos found: X" kaç diyor?
-- "Face tokens found: X" kaç diyor?
