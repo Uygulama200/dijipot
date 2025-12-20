@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 
 const FACEPP_API_KEY = process.env.FACEPP_API_KEY
 const FACEPP_API_SECRET = process.env.FACEPP_API_SECRET
-const MATCH_THRESHOLD = 60
+const MATCH_THRESHOLD = 60 // Daha esnek eşleştirme
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -142,10 +142,16 @@ export async function POST(request: NextRequest) {
     }
 
     // 5. Katılımcının eşleşme sayısını güncelle
-    await supabase
+    const { error: updateError } = await supabase
       .from('participants')
       .update({ photo_count: matches.length })
       .eq('id', participantId)
+    
+    if (updateError) {
+      console.error('❌ Photo count update error:', updateError)
+    } else {
+      console.log(`✅ Photo count updated: ${matches.length}`)
+    }
 
     console.log(`🎉 Total matches: ${matches.length}`)
 
