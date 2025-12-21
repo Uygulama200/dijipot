@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
-import { Camera, ArrowLeft, QrCode, Share2, Upload, Image, Users, Download, Copy, Loader2, X, CheckCircle, AlertCircle } from 'lucide-react'
+import { Camera, ArrowLeft, QrCode, Share2, Upload, Image, Users, Download, Copy, Loader2, X, CheckCircle, AlertCircle, Settings } from 'lucide-react'
 import { supabase, type Event, type Photo } from '@/lib/supabase'
 import toast from 'react-hot-toast'
 import { useDropzone } from 'react-dropzone'
@@ -33,6 +33,8 @@ export default function EventDetailPage() {
   const [participants, setParticipants] = useState<ParticipantWithMatches[]>([])
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('')
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number; detecting: number }>({ current: 0, total: 0, detecting: 0 })
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editForm, setEditForm] = useState({ name: '', event_date: '', status: 'active' })
 
   useEffect(() => {
     loadEventData()
@@ -61,6 +63,13 @@ export default function EventDetailPage() {
       }
 
       setEvent(eventData)
+
+      // Düzenleme formunu doldur
+      setEditForm({
+        name: eventData.name,
+        event_date: eventData.event_date || '',
+        status: eventData.status || 'active'
+      })
 
       // Generate QR Code
       const eventUrl = `${window.location.origin}/e/${eventData.event_code}`
@@ -258,6 +267,50 @@ export default function EventDetailPage() {
     }
   }
 
+  const openEditModal = () => {
+    if (event) {
+      setEditForm({
+        name: event.name,
+        event_date: event.event_date || '',
+        status: event.status || 'active'
+      })
+      setShowEditModal(true)
+    }
+  }
+
+  const closeEditModal = () => {
+    setShowEditModal(false)
+  }
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!editForm.name.trim()) {
+      toast.error('Etkinlik adı boş olamaz')
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('events')
+        .update({
+          name: editForm.name,
+          event_date: editForm.event_date || null,
+          status: editForm.status,
+        })
+        .eq('id', eventId)
+
+      if (error) throw error
+
+      toast.success('Etkinlik güncellendi')
+      setShowEditModal(false)
+      loadEventData()
+    } catch (error) {
+      console.error('Update error:', error)
+      toast.error('Güncelleme hatası')
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -275,16 +328,25 @@ export default function EventDetailPage() {
       {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center gap-4">
-            <Link href="/panel/etkinlikler" className="text-secondary-500 hover:text-secondary-700">
-              <ArrowLeft className="h-6 w-6" />
-            </Link>
-            <div>
-              <h1 className="text-xl font-bold text-secondary-800">{event.name}</h1>
-              <p className="text-sm text-secondary-500">
-                Kod: <span className="font-mono font-semibold text-primary">{event.event_code}</span>
-              </p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Link href="/panel/etkinlikler" className="text-secondary-500 hover:text-secondary-700">
+                <ArrowLeft className="h-6 w-6" />
+              </Link>
+              <div>
+                <h1 className="text-xl font-bold text-secondary-800">{event.name}</h1>
+                <p className="text-sm text-secondary-500">
+                  Kod: <span className="font-mono font-semibold text-primary">{event.event_code}</span>
+                </p>
+              </div>
             </div>
+            <button
+              onClick={openEditModal}
+              className="btn-outline flex items-center gap-2"
+            >
+              <Settings className="h-4 w-4" />
+              Düzenle
+            </button>
           </div>
         </div>
       </header>
@@ -474,6 +536,96 @@ export default function EventDetailPage() {
           </div>
         </div>
       </main>
+
+      {/* Edit Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-secondary-800 flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                Etkinliği Düzenle
+              </h2>
+              <button onClick={closeEditModal} className="text-secondary-400 hover:text-secondary-600">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-1">
+                  Etkinlik Adı *
+                </label>
+                <input
+                  type="text"
+                  className="input-field"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-1">
+                  Etkinlik Tarihi
+                </label>
+                <input
+                  type="date"
+                  className="input-field"
+                  value={editForm.event_date}
+                  onChange={(e) => setEditForm({ ...editForm, event_date: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-2">
+                  Durum
+                </label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="status"
+                      value="active"
+                      checked={editForm.status === 'active'}
+                      onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                      className="text-primary"
+                    />
+                    <span className="text-secondary-700">Aktif</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="status"
+                      value="completed"
+                      checked={editForm.status === 'completed'}
+                      onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                      className="text-primary"
+                    />
+                    <span className="text-secondary-700">Tamamlandı</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={closeEditModal}
+                  className="btn-outline flex-1"
+                >
+                  İptal
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary flex-1"
+                >
+                  Kaydet
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
