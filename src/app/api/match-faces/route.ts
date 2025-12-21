@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 
 const FACEPP_API_KEY = process.env.FACEPP_API_KEY
 const FACEPP_API_SECRET = process.env.FACEPP_API_SECRET
-const MATCH_THRESHOLD = 45 // AI fotoğraflar için düşük eşik
+const MATCH_THRESHOLD = 55 // Daha dengeli eşik
 const DELAY_MS = 1100 // Face++ rate limit için 1.1 saniye bekle
 
 const supabase = createClient(
@@ -179,15 +179,22 @@ export async function POST(request: NextRequest) {
     }
 
     // 5. Katılımcının eşleşme sayısını güncelle
-    const { error: updateError } = await supabase
-      .from('participants')
-      .update({ photo_count: matches.length })
-      .eq('id', participantId)
-    
-    if (updateError) {
-      console.error('❌ Photo count update error:', updateError)
+    if (matches.length > 0) {
+      const { data: updateData, error: updateError } = await supabase
+        .from('participants')
+        .update({ photo_count: matches.length })
+        .eq('id', participantId)
+        .select()
+      
+      if (updateError) {
+        console.error('❌ Photo count update error:', updateError)
+      } else if (updateData && updateData.length > 0) {
+        console.log(`✅ Photo count updated: ${matches.length}`)
+      } else {
+        console.error('⚠️ Update returned no rows - RLS policy issue?')
+      }
     } else {
-      console.log(`✅ Photo count updated: ${matches.length}`)
+      console.log('ℹ️ No matches, photo_count stays 0')
     }
 
     console.log(`🎉 Total matches: ${matches.length}`)
