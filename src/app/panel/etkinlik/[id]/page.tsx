@@ -327,79 +327,24 @@ export default function EventDetailPage() {
     setDeleting(true)
     
     try {
-      // 1. Get all photo IDs for this event
-      const { data: photosData } = await supabase
-        .from('photos')
-        .select('id')
-        .eq('event_id', eventId)
+      // API'yi çağır
+      const response = await fetch('/api/delete-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId: event.id }),
+      })
 
-      const photoIds = photosData?.map(p => p.id) || []
+      const data = await response.json()
 
-      // 2. Delete face_tokens
-      if (photoIds.length > 0) {
-        await supabase
-          .from('face_tokens')
-          .delete()
-          .in('photo_id', photoIds)
+      if (!response.ok) {
+        throw new Error(data.error || 'Silme hatası')
       }
-
-      // 3. Delete participant_matches
-      await supabase
-        .from('participant_matches')
-        .delete()
-        .in('photo_id', photoIds)
-
-      // 4. Delete participants
-      await supabase
-        .from('participants')
-        .delete()
-        .eq('event_id', eventId)
-
-      // 5. Delete photos
-      await supabase
-        .from('photos')
-        .delete()
-        .eq('event_id', eventId)
-
-      // 6. Delete storage files
-      try {
-        const { data: storageFiles } = await supabase.storage
-          .from('photos')
-          .list(eventId)
-
-        if (storageFiles && storageFiles.length > 0) {
-          const filePaths = storageFiles.map(file => `${eventId}/${file.name}`)
-          await supabase.storage
-            .from('photos')
-            .remove(filePaths)
-        }
-
-        const { data: selfieFiles } = await supabase.storage
-          .from('selfies')
-          .list(eventId)
-
-        if (selfieFiles && selfieFiles.length > 0) {
-          const filePaths = selfieFiles.map(file => `${eventId}/${file.name}`)
-          await supabase.storage
-            .from('selfies')
-            .remove(filePaths)
-        }
-      } catch (storageError) {
-        console.error('Storage cleanup error:', storageError)
-        // Continue even if storage cleanup fails
-      }
-
-      // 7. Delete event
-      await supabase
-        .from('events')
-        .delete()
-        .eq('id', eventId)
 
       toast.success('Etkinlik silindi')
       router.push('/panel/etkinlikler')
     } catch (error) {
       console.error('Delete error:', error)
-      toast.error('Silme hatası')
+      toast.error(error instanceof Error ? error.message : 'Silme hatası')
     } finally {
       setDeleting(false)
     }
