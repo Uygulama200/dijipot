@@ -40,6 +40,7 @@ export default function EventDetailPage() {
   const [selectedPhotos, setSelectedPhotos] = useState<string[]>([])
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [deletingParticipant, setDeletingParticipant] = useState<string | null>(null)
 
   useEffect(() => {
     loadEventData()
@@ -329,6 +330,39 @@ export default function EventDetailPage() {
       toast.error(error instanceof Error ? error.message : 'Silme hatası')
     } finally {
       setBulkDeleting(false)
+    }
+  }
+
+  const deleteParticipant = async (participantId: string) => {
+    if (!confirm('Bu katılımcıyı silmek istediğinize emin misiniz? Tüm eşleşme kayıtları da silinecek.')) {
+      return
+    }
+
+    setDeletingParticipant(participantId)
+
+    try {
+      const response = await fetch('/api/delete-participant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          participantId,
+          eventId: event?.id 
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Silme hatası')
+      }
+
+      toast.success('Katılımcı silindi')
+      loadEventData()
+    } catch (error) {
+      console.error('Delete participant error:', error)
+      toast.error(error instanceof Error ? error.message : 'Silme hatası')
+    } finally {
+      setDeletingParticipant(null)
     }
   }
 
@@ -653,7 +687,7 @@ export default function EventDetailPage() {
               ) : (
                 <div className="space-y-3">
                   {participants.map((p) => (
-                    <div key={p.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                    <div key={p.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg group">
                       {p.selfie_url ? (
                         <img src={p.selfie_url} alt="" className="w-10 h-10 rounded-full object-cover" />
                       ) : (
@@ -668,6 +702,18 @@ export default function EventDetailPage() {
                       {p.match_count > 0 && (
                         <CheckCircle className="h-5 w-5 text-green-500" />
                       )}
+                      <button
+                        onClick={() => deleteParticipant(p.id)}
+                        disabled={deletingParticipant === p.id}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity bg-red-500 text-white p-2 rounded-lg hover:bg-red-600 disabled:opacity-50"
+                        title="Katılımcıyı Sil"
+                      >
+                        {deletingParticipant === p.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <X className="h-4 w-4" />
+                        )}
+                      </button>
                     </div>
                   ))}
                 </div>
