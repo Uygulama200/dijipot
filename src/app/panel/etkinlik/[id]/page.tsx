@@ -35,6 +35,8 @@ export default function EventDetailPage() {
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number; detecting: number }>({ current: 0, total: 0, detecting: 0 })
   const [showEditModal, setShowEditModal] = useState(false)
   const [editForm, setEditForm] = useState({ name: '', event_date: '', status: 'active' })
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     loadEventData()
@@ -308,6 +310,98 @@ export default function EventDetailPage() {
     } catch (error) {
       console.error('Update error:', error)
       toast.error('Güncelleme hatası')
+    }
+  }
+
+  const openDeleteModal = () => {
+    setShowDeleteModal(true)
+  }
+
+  const closeDeleteModal = () => {
+    setShowDeleteModal(false)
+  }
+
+  const handleDeleteEvent = async () => {
+    if (!event) return
+    
+    setDeleting(true)
+    
+    try {
+      // 1. Get all photo IDs for this event
+      const { data: photosData } = await supabase
+        .from('photos')
+        .select('id')
+        .eq('event_id', eventId)
+
+      const photoIds = photosData?.map(p => p.id) || []
+
+      // 2. Delete face_tokens
+      if (photoIds.length > 0) {
+        await supabase
+          .from('face_tokens')
+          .delete()
+          .in('photo_id', photoIds)
+      }
+
+      // 3. Delete participant_matches
+      await supabase
+        .from('participant_matches')
+        .delete()
+        .in('photo_id', photoIds)
+
+      // 4. Delete participants
+      await supabase
+        .from('participants')
+        .delete()
+        .eq('event_id', eventId)
+
+      // 5. Delete photos
+      await supabase
+        .from('photos')
+        .delete()
+        .eq('event_id', eventId)
+
+      // 6. Delete storage files
+      try {
+        const { data: storageFiles } = await supabase.storage
+          .from('photos')
+          .list(eventId)
+
+        if (storageFiles && storageFiles.length > 0) {
+          const filePaths = storageFiles.map(file => `${eventId}/${file.name}`)
+          await supabase.storage
+            .from('photos')
+            .remove(filePaths)
+        }
+
+        const { data: selfieFiles } = await supabase.storage
+          .from('selfies')
+          .list(eventId)
+
+        if (selfieFiles && selfieFiles.length > 0) {
+          const filePaths = selfieFiles.map(file => `${eventId}/${file.name}`)
+          await supabase.storage
+            .from('selfies')
+            .remove(filePaths)
+        }
+      } catch (storageError) {
+        console.error('Storage cleanup error:', storageError)
+        // Continue even if storage cleanup fails
+      }
+
+      // 7. Delete event
+      await supabase
+        .from('events')
+        .delete()
+        .eq('id', eventId)
+
+      toast.success('Etkinlik silindi')
+      router.push('/panel/etkinlikler')
+    } catch (error) {
+      console.error('Delete error:', error)
+      toast.error('Silme hatası')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -622,7 +716,90 @@ export default function EventDetailPage() {
                   Kaydet
                 </button>
               </div>
+
+              {/* Delete Section */}
+              <div className="border-t border-gray-200 pt-4 mt-6">
+                <button
+                  type="button"
+                  onClick={openDeleteModal}
+                  className="w-full bg-red-50 text-red-600 px-4 py-3 rounded-lg font-semibold hover:bg-red-100 transition-colors flex items-center justify-center gap-2"
+                >
+                  <X className="h-5 w-5" />
+                  Etkinliği Sil
+                </button>
+                <p className="text-xs text-secondary-400 mt-2 text-center">
+                  Bu işlem geri alınamaz. Tüm fotoğraflar ve veriler silinecek.
+                </p>
+              </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertCircle className="h-8 w-8 text-red-600" />
+              </div>
+              <h2 className="text-xl font-semibold text-secondary-800 mb-2">
+                Etkinliği Silmek İstediğinize Emin Misiniz?
+              </h2>
+              <p className="text-secondary-500 mb-6">
+                <strong>{event?.name}</strong> etkinliği ve tüm verileri kalıcı olarak silinecek:
+              </p>
+              <div className="bg-red-50 rounded-lg p-4 mb-6 text-left">
+                <ul className="space-y-2 text-sm text-red-700">
+                  <li className="flex items-center gap-2">
+                    <X className="h-4 w-4 flex-shrink-0" />
+                    <span>{event?.photo_count || 0} fotoğraf</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <X className="h-4 w-4 flex-shrink-0" />
+                    <span>{event?.participant_count || 0} katılımcı</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <X className="h-4 w-4 flex-shrink-0" />
+                    <span>Tüm yüz tanıma verileri</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <X className="h-4 w-4 flex-shrink-0" />
+                    <span>Tüm eşleşme kayıtları</span>
+                  </li>
+                </ul>
+              </div>
+              <p className="text-sm text-red-600 font-semibold mb-6">
+                ⚠️ Bu işlem geri alınamaz!
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={closeDeleteModal}
+                  disabled={deleting}
+                  className="btn-outline flex-1"
+                >
+                  İptal
+                </button>
+                <button
+                  onClick={handleDeleteEvent}
+                  disabled={deleting}
+                  className="bg-red-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-700 transition-colors flex-1 flex items-center justify-center gap-2"
+                >
+                  {deleting ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      Siliniyor...
+                    </>
+                  ) : (
+                    <>
+                      <X className="h-5 w-5" />
+                      Evet, Sil
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
