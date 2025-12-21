@@ -37,6 +37,9 @@ export default function EventDetailPage() {
   const [editForm, setEditForm] = useState({ name: '', event_date: '', status: 'active' })
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [selectedPhotos, setSelectedPhotos] = useState<string[]>([])
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
 
   useEffect(() => {
     loadEventData()
@@ -266,6 +269,66 @@ export default function EventDetailPage() {
       loadEventData()
     } catch (error) {
       toast.error('Silme hatası')
+    }
+  }
+
+  const togglePhotoSelection = (photoId: string) => {
+    setSelectedPhotos(prev => 
+      prev.includes(photoId) 
+        ? prev.filter(id => id !== photoId)
+        : [...prev, photoId]
+    )
+  }
+
+  const selectAllPhotos = () => {
+    if (selectedPhotos.length === photos.length) {
+      setSelectedPhotos([])
+    } else {
+      setSelectedPhotos(photos.map(p => p.id))
+    }
+  }
+
+  const openBulkDeleteModal = () => {
+    if (selectedPhotos.length === 0) {
+      toast.error('Lütfen silinecek fotoğrafları seçin')
+      return
+    }
+    setShowBulkDeleteModal(true)
+  }
+
+  const closeBulkDeleteModal = () => {
+    setShowBulkDeleteModal(false)
+  }
+
+  const handleBulkDelete = async () => {
+    setBulkDeleting(true)
+    
+    try {
+      // API'yi çağır
+      const response = await fetch('/api/delete-photos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          photoIds: selectedPhotos,
+          eventId: event?.id 
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Silme hatası')
+      }
+
+      toast.success(`${selectedPhotos.length} fotoğraf silindi`)
+      setSelectedPhotos([])
+      setShowBulkDeleteModal(false)
+      loadEventData()
+    } catch (error) {
+      console.error('Bulk delete error:', error)
+      toast.error(error instanceof Error ? error.message : 'Silme hatası')
+    } finally {
+      setBulkDeleting(false)
     }
   }
 
@@ -508,10 +571,36 @@ export default function EventDetailPage() {
 
             {/* Photos Grid */}
             <div className="card">
-              <h2 className="text-lg font-semibold text-secondary-800 mb-4 flex items-center gap-2">
-                <Image className="h-5 w-5" />
-                Fotoğraflar ({photos.length})
-              </h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-secondary-800 flex items-center gap-2">
+                  <Image className="h-5 w-5" />
+                  Fotoğraflar ({photos.length})
+                </h2>
+                {photos.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    {selectedPhotos.length > 0 && (
+                      <>
+                        <span className="text-sm text-secondary-500">
+                          {selectedPhotos.length} seçildi
+                        </span>
+                        <button
+                          onClick={openBulkDeleteModal}
+                          className="bg-red-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-600 transition-colors flex items-center gap-2"
+                        >
+                          <X className="h-4 w-4" />
+                          Seçilenleri Sil
+                        </button>
+                      </>
+                    )}
+                    <button
+                      onClick={selectAllPhotos}
+                      className="btn-outline text-sm"
+                    >
+                      {selectedPhotos.length === photos.length ? 'Tümünü Kaldır' : 'Tümünü Seç'}
+                    </button>
+                  </div>
+                )}
+              </div>
               {photos.length === 0 ? (
                 <div className="text-center py-12 text-secondary-500">
                   <Image className="h-16 w-16 mx-auto mb-4 opacity-50" />
@@ -524,8 +613,20 @@ export default function EventDetailPage() {
                       <img
                         src={photo.thumbnail_url || photo.original_url}
                         alt=""
-                        className="w-full aspect-square object-cover rounded-lg"
+                        className={`w-full aspect-square object-cover rounded-lg transition-all ${
+                          selectedPhotos.includes(photo.id) ? 'ring-4 ring-primary' : ''
+                        }`}
                       />
+                      {/* Checkbox */}
+                      <div className="absolute top-2 left-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedPhotos.includes(photo.id)}
+                          onChange={() => togglePhotoSelection(photo.id)}
+                          className="w-5 h-5 rounded border-2 border-white cursor-pointer"
+                        />
+                      </div>
+                      {/* Delete button */}
                       <button
                         onClick={() => deletePhoto(photo.id)}
                         className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
@@ -732,6 +833,70 @@ export default function EventDetailPage() {
                   className="bg-red-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-700 transition-colors flex-1 flex items-center justify-center gap-2"
                 >
                   {deleting ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      Siliniyor...
+                    </>
+                  ) : (
+                    <>
+                      <X className="h-5 w-5" />
+                      Evet, Sil
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete Confirmation Modal */}
+      {showBulkDeleteModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertCircle className="h-8 w-8 text-red-600" />
+              </div>
+              <h2 className="text-xl font-semibold text-secondary-800 mb-2">
+                {selectedPhotos.length} Fotoğrafı Sil?
+              </h2>
+              <p className="text-secondary-500 mb-4">
+                Seçilen fotoğraflar ve ilişkili tüm veriler kalıcı olarak silinecek.
+              </p>
+              <div className="bg-red-50 rounded-lg p-4 mb-6 text-left">
+                <ul className="space-y-2 text-sm text-red-700">
+                  <li className="flex items-center gap-2">
+                    <X className="h-4 w-4 flex-shrink-0" />
+                    <span>{selectedPhotos.length} fotoğraf</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <X className="h-4 w-4 flex-shrink-0" />
+                    <span>Tüm yüz tanıma verileri</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <X className="h-4 w-4 flex-shrink-0" />
+                    <span>İlgili eşleşme kayıtları</span>
+                  </li>
+                </ul>
+              </div>
+              <p className="text-sm text-red-600 font-semibold mb-6">
+                ⚠️ Bu işlem geri alınamaz!
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={closeBulkDeleteModal}
+                  disabled={bulkDeleting}
+                  className="btn-outline flex-1"
+                >
+                  İptal
+                </button>
+                <button
+                  onClick={handleBulkDelete}
+                  disabled={bulkDeleting}
+                  className="bg-red-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-700 transition-colors flex-1 flex items-center justify-center gap-2"
+                >
+                  {bulkDeleting ? (
                     <>
                       <Loader2 className="h-5 w-5 animate-spin" />
                       Siliniyor...
