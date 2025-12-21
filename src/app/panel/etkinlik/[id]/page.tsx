@@ -4,10 +4,21 @@ import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
 import { Camera, ArrowLeft, QrCode, Share2, Upload, Image, Users, Download, Copy, Loader2, X, CheckCircle, AlertCircle } from 'lucide-react'
-import { supabase, type Event, type Photo, type Participant } from '@/lib/supabase'
+import { supabase, type Event, type Photo } from '@/lib/supabase'
 import toast from 'react-hot-toast'
 import { useDropzone } from 'react-dropzone'
 import QRCode from 'qrcode'
+
+// Participant type with dynamic match count
+type ParticipantWithMatches = {
+  id: string
+  event_id: string
+  phone: string | null
+  selfie_url: string | null
+  photo_count: number
+  created_at: string
+  match_count: number // Gerçek eşleşme sayısı
+}
 
 export default function EventDetailPage() {
   const router = useRouter()
@@ -19,7 +30,7 @@ export default function EventDetailPage() {
   const [processing, setProcessing] = useState(false)
   const [event, setEvent] = useState<Event | null>(null)
   const [photos, setPhotos] = useState<Photo[]>([])
-  const [participants, setParticipants] = useState<Participant[]>([])
+  const [participants, setParticipants] = useState<ParticipantWithMatches[]>([])
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('')
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number; detecting: number }>({ current: 0, total: 0, detecting: 0 })
 
@@ -67,15 +78,37 @@ export default function EventDetailPage() {
         setPhotos(photosData)
       }
 
-      // Get participants
+      // 🔥 KALICI ÇÖZÜM: Gerçek zamanlı eşleşme sayısını hesapla
       const { data: participantsData } = await supabase
         .from('participants')
-        .select('*')
+        .select(`
+          id,
+          event_id,
+          phone,
+          selfie_url,
+          photo_count,
+          created_at
+        `)
         .eq('event_id', eventId)
         .order('created_at', { ascending: false })
 
       if (participantsData) {
-        setParticipants(participantsData)
+        // Her katılımcı için gerçek eşleşme sayısını al
+        const participantsWithMatches = await Promise.all(
+          participantsData.map(async (p) => {
+            const { count } = await supabase
+              .from('participant_matches')
+              .select('*', { count: 'exact', head: true })
+              .eq('participant_id', p.id)
+
+            return {
+              ...p,
+              match_count: count || 0
+            }
+          })
+        )
+
+        setParticipants(participantsWithMatches)
       }
     } catch (error) {
       console.error('Error loading event:', error)
@@ -428,9 +461,9 @@ export default function EventDetailPage() {
                       )}
                       <div className="flex-1">
                         <p className="font-medium text-secondary-800">{p.phone || 'Telefon yok'}</p>
-                        <p className="text-sm text-secondary-500">{p.photo_count} fotoğraf eşleşti</p>
+                        <p className="text-sm text-secondary-500">{p.match_count} fotoğraf eşleşti</p>
                       </div>
-                      {p.photo_count > 0 && (
+                      {p.match_count > 0 && (
                         <CheckCircle className="h-5 w-5 text-green-500" />
                       )}
                     </div>
