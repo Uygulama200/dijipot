@@ -3,15 +3,15 @@ import { createClient } from '@supabase/supabase-js'
 
 const FACEPP_API_KEY = process.env.FACEPP_API_KEY
 const FACEPP_API_SECRET = process.env.FACEPP_API_SECRET
-const MATCH_THRESHOLD = 60
-const DELAY_MS = 1100 // 🔥 Face++ rate limit için 1.1 saniye bekle
+const MATCH_THRESHOLD = 45 // AI fotoğraflar için düşük eşik
+const DELAY_MS = 1100 // Face++ rate limit için 1.1 saniye bekle
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-// 🔥 DELAY HELPER FONKSIYONU
+// DELAY HELPER
 function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
@@ -134,13 +134,13 @@ export async function POST(request: NextRequest) {
 
     console.log(`🎭 Found ${faceTokens.length} face tokens to compare`)
 
-    // 4. Yüz karşılaştırması - RATE LIMIT İLE
+    // 4. Yüz karşılaştırması - 50 TOKEN'A KADAR
     const matches: string[] = []
     const checked = new Set<string>()
 
-    // 🔥 Sadece ilk 10 face token ile karşılaştır (rate limit için)
-    const tokensToCheck = faceTokens.slice(0, 10)
-    console.log(`⏱️ Checking ${tokensToCheck.length} tokens (with 1.1s delay between requests)`)
+    // 🔥 İlk 50 face token ile karşılaştır (daha fazla eşleşme için)
+    const tokensToCheck = faceTokens.slice(0, 50)
+    console.log(`⏱️ Checking ${tokensToCheck.length} tokens (with ${DELAY_MS}ms delay between requests)`)
 
     for (let i = 0; i < tokensToCheck.length; i++) {
       const ft = tokensToCheck[i]
@@ -171,7 +171,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // 🔥 Son istek değilse BEKLE (rate limit için)
+      // Son istek değilse BEKLE (rate limit için)
       if (i < tokensToCheck.length - 1) {
         console.log(`⏳ Waiting ${DELAY_MS}ms before next request...`)
         await delay(DELAY_MS)
