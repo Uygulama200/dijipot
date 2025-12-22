@@ -429,31 +429,71 @@ export default function EventDetailPage() {
   }
 
   const loadAnalysisData = async () => {
+    if (!eventId) return
+    
     try {
+      // Get all photos for this event
+      const { data: eventPhotos } = await supabase
+        .from('photos')
+        .select('id')
+        .eq('event_id', eventId)
+
+      const photoIds = eventPhotos?.map(p => p.id) || []
+
+      if (photoIds.length === 0) {
+        setAnalysisData({
+          totalFaces: 0,
+          avgFacesPerPhoto: 0,
+          participantsWithMatches: 0,
+          participantsWithoutMatches: 0,
+          highConfidenceMatches: 0,
+          mediumConfidenceMatches: 0,
+          lowConfidenceMatches: 0,
+          avgConfidence: 0,
+          photosWithoutFaces: 0,
+          topParticipants: []
+        })
+        return
+      }
+
       // Total faces count
       const { count: totalFaces } = await supabase
         .from('face_tokens')
         .select('*', { count: 'exact', head: true })
-        .in('photo_id', photos.map(p => p.id))
+        .in('photo_id', photoIds)
 
       // Photos without faces
       const { data: photosWithFaces } = await supabase
         .from('face_tokens')
         .select('photo_id')
-        .in('photo_id', photos.map(p => p.id))
+        .in('photo_id', photoIds)
 
       const photosWithFacesIds = new Set(photosWithFaces?.map(f => f.photo_id) || [])
-      const photosWithoutFaces = photos.filter(p => !photosWithFacesIds.has(p.id)).length
+      const photosWithoutFaces = photoIds.filter(id => !photosWithFacesIds.has(id)).length
 
-      // Participants with/without matches
-      const participantsWithMatches = participants.filter(p => p.match_count > 0).length
-      const participantsWithoutMatches = participants.filter(p => p.match_count === 0).length
+      // Get all participants for this event
+      const { data: eventParticipants } = await supabase
+        .from('participants')
+        .select('id')
+        .eq('event_id', eventId)
+
+      const participantIds = eventParticipants?.map(p => p.id) || []
+
+      // Count participants with matches
+      const { data: participantMatchCounts } = await supabase
+        .from('participant_matches')
+        .select('participant_id')
+        .in('participant_id', participantIds)
+
+      const participantsWithMatchesSet = new Set(participantMatchCounts?.map(m => m.participant_id) || [])
+      const participantsWithMatches = participantsWithMatchesSet.size
+      const participantsWithoutMatches = participantIds.length - participantsWithMatches
 
       // Confidence statistics
       const { data: allMatches } = await supabase
         .from('participant_matches')
-        .select('confidence')
-        .in('participant_id', participants.map(p => p.id))
+        .select('confidence, participant_id')
+        .in('participant_id', participantIds)
 
       let highConfidence = 0
       let mediumConfidence = 0
@@ -473,19 +513,40 @@ export default function EventDetailPage() {
         ? totalConfidence / allMatches.length 
         : 0
 
-      // Top participants
-      const topParticipants = participants
-        .filter(p => p.match_count > 0)
-        .sort((a, b) => b.match_count - a.match_count)
+      // Top participants - group by participant_id and count
+      const participantMatchMap = new Map<string, number>()
+      if (allMatches) {
+        allMatches.forEach(m => {
+          participantMatchMap.set(
+            m.participant_id, 
+            (participantMatchMap.get(m.participant_id) || 0) + 1
+          )
+        })
+      }
+
+      // Get participant details for top 5
+      const topParticipantIds = Array.from(participantMatchMap.entries())
+        .sort((a, b) => b[1] - a[1])
         .slice(0, 5)
-        .map(p => ({
-          phone: p.phone,
-          matchCount: p.match_count
-        }))
+        .map(([id]) => id)
+
+      const { data: topParticipantsData } = await supabase
+        .from('participants')
+        .select('id, phone')
+        .in('id', topParticipantIds)
+
+      const topParticipants = topParticipantIds
+        .map(id => {
+          const participant = topParticipantsData?.find(p => p.id === id)
+          return {
+            phone: participant?.phone || null,
+            matchCount: participantMatchMap.get(id) || 0
+          }
+        })
 
       setAnalysisData({
         totalFaces: totalFaces || 0,
-        avgFacesPerPhoto: photos.length > 0 ? (totalFaces || 0) / photos.length : 0,
+        avgFacesPerPhoto: photoIds.length > 0 ? (totalFaces || 0) / photoIds.length : 0,
         participantsWithMatches,
         participantsWithoutMatches,
         highConfidenceMatches: highConfidence,
