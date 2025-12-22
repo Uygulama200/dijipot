@@ -41,6 +41,9 @@ export default function EventDetailPage() {
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
   const [deletingParticipant, setDeletingParticipant] = useState<string | null>(null)
+  const [selectedParticipant, setSelectedParticipant] = useState<ParticipantWithMatches | null>(null)
+  const [participantPhotos, setParticipantPhotos] = useState<Array<{ photo: Photo; confidence: number }>>([])
+  const [loadingParticipant, setLoadingParticipant] = useState(false)
 
   useEffect(() => {
     loadEventData()
@@ -366,6 +369,52 @@ export default function EventDetailPage() {
     }
   }
 
+  const openParticipantDetail = async (participant: ParticipantWithMatches) => {
+    setSelectedParticipant(participant)
+    setLoadingParticipant(true)
+    
+    try {
+      // Get participant matches with confidence
+      const { data: matchesData } = await supabase
+        .from('participant_matches')
+        .select('photo_id, confidence')
+        .eq('participant_id', participant.id)
+        .order('confidence', { ascending: false })
+
+      if (matchesData && matchesData.length > 0) {
+        // Get photos for these matches
+        const photoIds = matchesData.map(m => m.photo_id)
+        const { data: photosData } = await supabase
+          .from('photos')
+          .select('*')
+          .in('id', photoIds)
+
+        if (photosData) {
+          // Combine photos with confidence scores
+          const photosWithConfidence = matchesData.map(match => {
+            const photo = photosData.find(p => p.id === match.photo_id)
+            return {
+              photo: photo!,
+              confidence: match.confidence
+            }
+          }).filter(item => item.photo)
+
+          setParticipantPhotos(photosWithConfidence)
+        }
+      }
+    } catch (error) {
+      console.error('Error loading participant details:', error)
+      toast.error('Detaylar yüklenemedi')
+    } finally {
+      setLoadingParticipant(false)
+    }
+  }
+
+  const closeParticipantDetail = () => {
+    setSelectedParticipant(null)
+    setParticipantPhotos([])
+  }
+
   const openEditModal = () => {
     if (event) {
       setEditForm({
@@ -687,7 +736,11 @@ export default function EventDetailPage() {
               ) : (
                 <div className="space-y-3">
                   {participants.map((p) => (
-                    <div key={p.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg group">
+                    <div 
+                      key={p.id} 
+                      className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg group cursor-pointer hover:bg-gray-100 transition-colors"
+                      onClick={() => openParticipantDetail(p)}
+                    >
                       {p.selfie_url ? (
                         <img src={p.selfie_url} alt="" className="w-10 h-10 rounded-full object-cover" />
                       ) : (
@@ -703,7 +756,10 @@ export default function EventDetailPage() {
                         <CheckCircle className="h-5 w-5 text-green-500" />
                       )}
                       <button
-                        onClick={() => deleteParticipant(p.id)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          deleteParticipant(p.id)
+                        }}
                         disabled={deletingParticipant === p.id}
                         className="opacity-0 group-hover:opacity-100 transition-opacity bg-red-500 text-white p-2 rounded-lg hover:bg-red-600 disabled:opacity-50"
                         title="Katılımcıyı Sil"
@@ -955,6 +1011,154 @@ export default function EventDetailPage() {
                   )}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Participant Detail Modal */}
+      {selectedParticipant && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-4xl w-full my-8">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-secondary-800 flex items-center gap-2">
+                <Users className="h-6 w-6" />
+                Katılımcı Detayları
+              </h2>
+              <button onClick={closeParticipantDetail} className="text-secondary-400 hover:text-secondary-600">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              {/* Participant Info */}
+              <div className="flex items-start gap-6 mb-6 pb-6 border-b border-gray-200">
+                <div className="flex-shrink-0">
+                  {selectedParticipant.selfie_url ? (
+                    <img 
+                      src={selectedParticipant.selfie_url} 
+                      alt="Selfie" 
+                      className="w-32 h-32 rounded-lg object-cover border-4 border-primary"
+                    />
+                  ) : (
+                    <div className="w-32 h-32 rounded-lg bg-secondary-200 flex items-center justify-center">
+                      <Users className="h-16 w-16 text-secondary-400" />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex-1">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-secondary-500">Telefon</p>
+                      <p className="font-semibold text-secondary-800">{selectedParticipant.phone || 'Telefon yok'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-secondary-500">Katılım Tarihi</p>
+                      <p className="font-semibold text-secondary-800">
+                        {new Date(selectedParticipant.created_at).toLocaleString('tr-TR')}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-secondary-500">Eşleşme Sayısı</p>
+                      <p className="text-2xl font-bold text-primary">{selectedParticipant.match_count}</p>
+                    </div>
+                    {participantPhotos.length > 0 && (
+                      <>
+                        <div>
+                          <p className="text-sm text-secondary-500">Ortalama Güven</p>
+                          <p className="text-2xl font-bold text-secondary-800">
+                            {(participantPhotos.reduce((sum, p) => sum + p.confidence, 0) / participantPhotos.length).toFixed(1)}%
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-secondary-500">En Yüksek Güven</p>
+                          <p className="font-semibold text-green-600">
+                            {Math.max(...participantPhotos.map(p => p.confidence)).toFixed(1)}%
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-secondary-500">En Düşük Güven</p>
+                          <p className="font-semibold text-orange-600">
+                            {Math.min(...participantPhotos.map(p => p.confidence)).toFixed(1)}%
+                          </p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Matched Photos */}
+              <div>
+                <h3 className="text-lg font-semibold text-secondary-800 mb-4">
+                  Eşleşen Fotoğraflar ({participantPhotos.length})
+                </h3>
+
+                {loadingParticipant ? (
+                  <div className="flex justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : participantPhotos.length === 0 ? (
+                  <div className="text-center py-12 text-secondary-500">
+                    <Image className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                    <p>Eşleşen fotoğraf bulunamadı</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {participantPhotos.map((item, index) => (
+                      <div key={item.photo.id} className="relative group">
+                        <img
+                          src={item.photo.thumbnail_url || item.photo.original_url}
+                          alt=""
+                          className="w-full aspect-square object-cover rounded-lg"
+                        />
+                        {/* Confidence Badge */}
+                        <div className={`absolute top-2 right-2 px-2 py-1 rounded-full text-xs font-bold ${
+                          item.confidence >= 80 ? 'bg-green-500 text-white' :
+                          item.confidence >= 70 ? 'bg-green-400 text-white' :
+                          item.confidence >= 60 ? 'bg-yellow-500 text-white' :
+                          'bg-orange-500 text-white'
+                        }`}>
+                          {item.confidence.toFixed(1)}%
+                        </div>
+                        {/* Status Icon */}
+                        <div className="absolute top-2 left-2">
+                          {item.confidence >= 70 ? (
+                            <CheckCircle className="h-5 w-5 text-green-500 bg-white rounded-full" />
+                          ) : (
+                            <AlertCircle className="h-5 w-5 text-orange-500 bg-white rounded-full" />
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Warning for low confidence */}
+                {participantPhotos.filter(p => p.confidence < 60).length > 0 && (
+                  <div className="mt-4 bg-orange-50 rounded-lg p-4 flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-orange-500 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-semibold text-orange-700">
+                        {participantPhotos.filter(p => p.confidence < 60).length} şüpheli eşleşme
+                      </p>
+                      <p className="text-xs text-orange-600 mt-1">
+                        %60'ın altındaki güven skorları hatalı eşleşme olabilir. Manuel kontrol edilmesi önerilir.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t border-gray-200 flex justify-end">
+              <button onClick={closeParticipantDetail} className="btn-primary">
+                Kapat
+              </button>
             </div>
           </div>
         </div>
