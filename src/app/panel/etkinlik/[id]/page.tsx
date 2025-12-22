@@ -44,6 +44,19 @@ export default function EventDetailPage() {
   const [selectedParticipant, setSelectedParticipant] = useState<ParticipantWithMatches | null>(null)
   const [participantPhotos, setParticipantPhotos] = useState<Array<{ photo: Photo; confidence: number }>>([])
   const [loadingParticipant, setLoadingParticipant] = useState(false)
+  const [activeTab, setActiveTab] = useState<'general' | 'analysis'>('general')
+  const [analysisData, setAnalysisData] = useState<{
+    totalFaces: number
+    avgFacesPerPhoto: number
+    participantsWithMatches: number
+    participantsWithoutMatches: number
+    highConfidenceMatches: number
+    mediumConfidenceMatches: number
+    lowConfidenceMatches: number
+    avgConfidence: number
+    photosWithoutFaces: number
+    topParticipants: Array<{ phone: string | null; matchCount: number }>
+  } | null>(null)
 
   useEffect(() => {
     loadEventData()
@@ -415,6 +428,78 @@ export default function EventDetailPage() {
     setParticipantPhotos([])
   }
 
+  const loadAnalysisData = async () => {
+    try {
+      // Total faces count
+      const { count: totalFaces } = await supabase
+        .from('face_tokens')
+        .select('*', { count: 'exact', head: true })
+        .in('photo_id', photos.map(p => p.id))
+
+      // Photos without faces
+      const { data: photosWithFaces } = await supabase
+        .from('face_tokens')
+        .select('photo_id')
+        .in('photo_id', photos.map(p => p.id))
+
+      const photosWithFacesIds = new Set(photosWithFaces?.map(f => f.photo_id) || [])
+      const photosWithoutFaces = photos.filter(p => !photosWithFacesIds.has(p.id)).length
+
+      // Participants with/without matches
+      const participantsWithMatches = participants.filter(p => p.match_count > 0).length
+      const participantsWithoutMatches = participants.filter(p => p.match_count === 0).length
+
+      // Confidence statistics
+      const { data: allMatches } = await supabase
+        .from('participant_matches')
+        .select('confidence')
+        .in('participant_id', participants.map(p => p.id))
+
+      let highConfidence = 0
+      let mediumConfidence = 0
+      let lowConfidence = 0
+      let totalConfidence = 0
+
+      if (allMatches) {
+        allMatches.forEach(m => {
+          if (m.confidence >= 70) highConfidence++
+          else if (m.confidence >= 60) mediumConfidence++
+          else lowConfidence++
+          totalConfidence += m.confidence
+        })
+      }
+
+      const avgConfidence = allMatches && allMatches.length > 0 
+        ? totalConfidence / allMatches.length 
+        : 0
+
+      // Top participants
+      const topParticipants = participants
+        .filter(p => p.match_count > 0)
+        .sort((a, b) => b.match_count - a.match_count)
+        .slice(0, 5)
+        .map(p => ({
+          phone: p.phone,
+          matchCount: p.match_count
+        }))
+
+      setAnalysisData({
+        totalFaces: totalFaces || 0,
+        avgFacesPerPhoto: photos.length > 0 ? (totalFaces || 0) / photos.length : 0,
+        participantsWithMatches,
+        participantsWithoutMatches,
+        highConfidenceMatches: highConfidence,
+        mediumConfidenceMatches: mediumConfidence,
+        lowConfidenceMatches: lowConfidence,
+        avgConfidence,
+        photosWithoutFaces,
+        topParticipants
+      })
+    } catch (error) {
+      console.error('Error loading analysis data:', error)
+    }
+  }
+
   const openEditModal = () => {
     if (event) {
       setEditForm({
@@ -538,7 +623,33 @@ export default function EventDetailPage() {
 
       {/* Main */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid lg:grid-cols-3 gap-8">
+        {/* Tabs */}
+        <div className="flex gap-2 mb-6 border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab('general')}
+            className={`px-6 py-3 font-semibold transition-colors border-b-2 ${
+              activeTab === 'general'
+                ? 'text-primary border-primary'
+                : 'text-secondary-500 border-transparent hover:text-secondary-700'
+            }`}
+          >
+            Genel
+          </button>
+          <button
+            onClick={() => setActiveTab('analysis')}
+            className={`px-6 py-3 font-semibold transition-colors border-b-2 ${
+              activeTab === 'analysis'
+                ? 'text-primary border-primary'
+                : 'text-secondary-500 border-transparent hover:text-secondary-700'
+            }`}
+          >
+            📊 Analiz & Raporlar
+          </button>
+        </div>
+
+        {activeTab === 'general' ? (
+          // General Tab Content
+          <div className="grid lg:grid-cols-3 gap-8">
           {/* Left Column - QR & Share */}
           <div className="space-y-6">
             {/* QR Code */}
@@ -777,6 +888,196 @@ export default function EventDetailPage() {
             </div>
           </div>
         </div>
+        ) : (
+          // Analysis Tab Content
+          <div className="space-y-6">
+            {/* Summary Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="card text-center">
+                <p className="text-secondary-500 text-sm mb-2">Toplam Fotoğraf</p>
+                <p className="text-4xl font-bold text-primary">{photos.length}</p>
+              </div>
+              <div className="card text-center">
+                <p className="text-secondary-500 text-sm mb-2">Tespit Edilen Yüz</p>
+                <p className="text-4xl font-bold text-green-600">{analysisData?.totalFaces || 0}</p>
+                <p className="text-xs text-secondary-400 mt-1">
+                  Ort: {analysisData?.avgFacesPerPhoto.toFixed(1)} yüz/fotoğraf
+                </p>
+              </div>
+              <div className="card text-center">
+                <p className="text-secondary-500 text-sm mb-2">Toplam Katılımcı</p>
+                <p className="text-4xl font-bold text-blue-600">{participants.length}</p>
+              </div>
+            </div>
+
+            {/* Matching Status */}
+            <div className="card">
+              <h3 className="text-lg font-semibold text-secondary-800 mb-4 flex items-center gap-2">
+                🎯 Eşleşme Durumu
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-green-700">Başarılı</span>
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                  </div>
+                  <p className="text-3xl font-bold text-green-700">
+                    {analysisData?.participantsWithMatches || 0}
+                  </p>
+                  <p className="text-xs text-green-600 mt-1">
+                    {participants.length > 0 
+                      ? `%${((analysisData?.participantsWithMatches || 0) / participants.length * 100).toFixed(0)}`
+                      : '%0'
+                    }
+                  </p>
+                </div>
+                <div className="bg-red-50 p-4 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-red-700">Eşleşme Yok</span>
+                    <X className="h-5 w-5 text-red-600" />
+                  </div>
+                  <p className="text-3xl font-bold text-red-700">
+                    {analysisData?.participantsWithoutMatches || 0}
+                  </p>
+                  <p className="text-xs text-red-600 mt-1">
+                    {participants.length > 0 
+                      ? `%${((analysisData?.participantsWithoutMatches || 0) / participants.length * 100).toFixed(0)}`
+                      : '%0'
+                    }
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Quality Analysis */}
+            <div className="card">
+              <h3 className="text-lg font-semibold text-secondary-800 mb-4 flex items-center gap-2">
+                📊 Eşleşme Kalitesi
+              </h3>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                    <span className="font-medium text-green-700">Yüksek Güven (%70+)</span>
+                  </div>
+                  <span className="text-2xl font-bold text-green-700">
+                    {analysisData?.highConfidenceMatches || 0}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                    <span className="font-medium text-yellow-700">Orta Güven (%60-70)</span>
+                  </div>
+                  <span className="text-2xl font-bold text-yellow-700">
+                    {analysisData?.mediumConfidenceMatches || 0}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full bg-orange-500"></div>
+                    <span className="font-medium text-orange-700">Düşük Güven (%45-60)</span>
+                  </div>
+                  <span className="text-2xl font-bold text-orange-700">
+                    {analysisData?.lowConfidenceMatches || 0}
+                  </span>
+                </div>
+                <div className="pt-4 border-t border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-secondary-700">Ortalama Güven Skoru</span>
+                    <span className="text-3xl font-bold text-primary">
+                      {analysisData?.avgConfidence.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Issues */}
+            {((analysisData?.participantsWithoutMatches || 0) > 0 || 
+              (analysisData?.lowConfidenceMatches || 0) > 0 || 
+              (analysisData?.photosWithoutFaces || 0) > 0) && (
+              <div className="card bg-orange-50 border-2 border-orange-200">
+                <h3 className="text-lg font-semibold text-orange-800 mb-4 flex items-center gap-2">
+                  <AlertCircle className="h-6 w-6" />
+                  Dikkat Gereken Durumlar
+                </h3>
+                <div className="space-y-3">
+                  {(analysisData?.participantsWithoutMatches || 0) > 0 && (
+                    <div className="flex items-start gap-3 p-3 bg-white rounded-lg">
+                      <X className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-secondary-800">
+                          {analysisData?.participantsWithoutMatches} katılımcı eşleşme bulamadı
+                        </p>
+                        <p className="text-sm text-secondary-500">
+                          Selfie kalitesi düşük veya fotoğraflarda olmayabilirler
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {(analysisData?.lowConfidenceMatches || 0) > 0 && (
+                    <div className="flex items-start gap-3 p-3 bg-white rounded-lg">
+                      <AlertCircle className="h-5 w-5 text-orange-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-secondary-800">
+                          {analysisData?.lowConfidenceMatches} şüpheli eşleşme
+                        </p>
+                        <p className="text-sm text-secondary-500">
+                          Güven skoru %60'ın altında, manuel kontrol edilmeli
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {(analysisData?.photosWithoutFaces || 0) > 0 && (
+                    <div className="flex items-start gap-3 p-3 bg-white rounded-lg">
+                      <AlertCircle className="h-5 w-5 text-yellow-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-secondary-800">
+                          {analysisData?.photosWithoutFaces} fotoğrafta yüz tespit edilemedi
+                        </p>
+                        <p className="text-sm text-secondary-500">
+                          Fotoğraf bulanık, profil veya çok uzak çekilmiş olabilir
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Top Participants */}
+            {analysisData?.topParticipants && analysisData.topParticipants.length > 0 && (
+              <div className="card">
+                <h3 className="text-lg font-semibold text-secondary-800 mb-4 flex items-center gap-2">
+                  🏆 En Çok Fotoğrafı Olan Katılımcılar
+                </h3>
+                <div className="space-y-3">
+                  {analysisData.topParticipants.map((p, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
+                          index === 0 ? 'bg-yellow-400 text-yellow-900' :
+                          index === 1 ? 'bg-gray-300 text-gray-700' :
+                          index === 2 ? 'bg-orange-400 text-orange-900' :
+                          'bg-gray-200 text-gray-600'
+                        }`}>
+                          {index + 1}
+                        </div>
+                        <span className="font-medium text-secondary-800">
+                          {p.phone || 'Telefon yok'}
+                        </span>
+                      </div>
+                      <span className="text-xl font-bold text-primary">
+                        {p.matchCount} fotoğraf
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </main>
 
       {/* Edit Modal */}
