@@ -58,9 +58,15 @@ export default function EventDetailPage() {
     topParticipants: Array<{ phone: string | null; matchCount: number }>
   } | null>(null)
 
-  useEffect(() => {
+ useEffect(() => {
     loadEventData()
   }, [eventId])
+
+  useEffect(() => {
+    if (activeTab === 'analysis' && !analysisData) {
+      loadAnalysisData()
+    }
+  }, [activeTab])
 
   const loadEventData = async () => {
     try {
@@ -697,7 +703,12 @@ export default function EventDetailPage() {
             Genel
           </button>
           <button
-            onClick={() => setActiveTab('analysis')}
+            onClick={() => {
+              setActiveTab('analysis')
+              if (!analysisData) {
+                loadAnalysisData()
+              }
+            }}
             className={`px-6 py-3 font-semibold transition-colors border-b-2 ${
               activeTab === 'analysis'
                 ? 'text-primary border-primary'
