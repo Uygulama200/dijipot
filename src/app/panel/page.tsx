@@ -124,6 +124,9 @@ export default function DashboardPage() {
             <Settings className="h-5 w-5" />
             Ayarlar
           </Link>
+          <Link href="/panel/fiyatlandirma" className="btn-primary">
+            💎 Planları Gör
+          </Link>
         </nav>
 
         <button
