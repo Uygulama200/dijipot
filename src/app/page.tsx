@@ -161,11 +161,29 @@ export default function Home() {
       {/* Footer */}
       <footer className="bg-secondary-800 text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <div className="flex items-center gap-2 mb-4 md:mb-0">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+            {/* Logo */}
+            <div className="flex items-center gap-2">
               <Camera className="h-6 w-6 text-primary" />
               <span className="text-xl font-bold">Dijipot</span>
             </div>
+            
+            {/* Yasal Linkler */}
+            <div className="flex flex-wrap items-center justify-center gap-4 md:gap-6 text-sm">
+              <Link href="/kvkk" className="text-secondary-300 hover:text-white transition-colors">
+                KVKK
+              </Link>
+              <span className="text-secondary-600">•</span>
+              <Link href="/kullanim-sartlari" className="text-secondary-300 hover:text-white transition-colors">
+                Kullanım Şartları
+              </Link>
+              <span className="text-secondary-600">•</span>
+              <Link href="/gizlilik-politikasi" className="text-secondary-300 hover:text-white transition-colors">
+                Gizlilik Politikası
+              </Link>
+            </div>
+            
+            {/* Copyright */}
             <div className="text-secondary-400 text-sm">
               © 2024 Dijipot. Tüm hakları saklıdır.
             </div>
