@@ -1,1 +1,11 @@
-
+{
+  "pricing": "Fiyatlandırma",
+  "plans": "Planlar",
+  "choose_plan": "Plan Seç",
+  "free": "Ücretsiz",
+  "starter": "Başlangıç",
+  "intermediate": "Orta",
+  "professional": "Profesyonel",
+  "photo_credits": "Fotoğraf Kredisi",
+  "unlimited_events": "Sınırsız Etkinlik"
+}
