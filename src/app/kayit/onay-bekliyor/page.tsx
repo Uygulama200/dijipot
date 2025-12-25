@@ -1,15 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'next'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useTranslations } from 'next-intl'
 import { Mail, CheckCircle, RefreshCw } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import toast from 'react-hot-toast'
 
 export default function EmailVerificationPage() {
   const router = useRouter()
-  const t = useTranslations('auth')
   const [email, setEmail] = useState('')
   const [resending, setResending] = useState(false)
   const [countdown, setCountdown] = useState(60)
@@ -52,10 +50,10 @@ export default function EmailVerificationPage() {
 
       if (error) throw error
 
-      toast.success(t('email_sent_again'))
+      toast.success('Doğrulama e-postası tekrar gönderildi!')
       setCountdown(60)
     } catch (error) {
-      toast.error(t('email_send_failed'))
+      toast.error('E-posta gönderilemedi')
     } finally {
       setResending(false)
     }
@@ -70,32 +68,32 @@ export default function EmailVerificationPage() {
           </div>
 
           <h1 className="text-2xl font-bold text-secondary-900 mb-2">
-            {t('check_your_email')}
+            E-postanızı Kontrol Edin
           </h1>
           <p className="text-secondary-600 mb-6">
-            <strong>{email}</strong> {t('verification_sent')}
+            <strong>{email}</strong> adresine bir doğrulama linki gönderdik.
           </p>
 
           <div className="bg-blue-50 rounded-lg p-4 mb-6 text-left">
             <div className="flex items-start gap-3 mb-3">
               <CheckCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="font-medium text-blue-900 text-sm">1. {t('step_1')}</p>
-                <p className="text-blue-700 text-xs">{t('step_1_desc')}</p>
+                <p className="font-medium text-blue-900 text-sm">1. E-postanızı açın</p>
+                <p className="text-blue-700 text-xs">Gelen kutunuzu kontrol edin</p>
               </div>
             </div>
             <div className="flex items-start gap-3 mb-3">
               <CheckCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="font-medium text-blue-900 text-sm">2. {t('step_2')}</p>
-                <p className="text-blue-700 text-xs">{t('step_2_desc')}</p>
+                <p className="font-medium text-blue-900 text-sm">2. Linke tıklayın</p>
+                <p className="text-blue-700 text-xs">E-postadaki doğrulama linkini kullanın</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
               <CheckCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="font-medium text-blue-900 text-sm">3. {t('step_3')}</p>
-                <p className="text-blue-700 text-xs">{t('step_3_desc')}</p>
+                <p className="font-medium text-blue-900 text-sm">3. Otomatik yönlendirileceksiniz</p>
+                <p className="text-blue-700 text-xs">Panel sayfasına giriş yapacaksınız</p>
               </div>
             </div>
           </div>
@@ -108,28 +106,28 @@ export default function EmailVerificationPage() {
             {resending ? (
               <>
                 <RefreshCw className="h-4 w-4 animate-spin" />
-                {t('resending')}
+                Gönderiliyor...
               </>
             ) : countdown > 0 ? (
-              t('resend_countdown', { seconds: countdown })
+              `Tekrar gönder (${countdown}s)`
             ) : (
               <>
                 <RefreshCw className="h-4 w-4" />
-                {t('resend_email')}
+                E-postayı Tekrar Gönder
               </>
             )}
           </button>
 
           <p className="text-xs text-secondary-500">
-            💡 {t('spam_notice')}
+            💡 E-posta gelmedi mi? <strong>Spam/Gereksiz</strong> klasörünü kontrol edin.
           </p>
         </div>
 
         <div className="text-center mt-6">
           <p className="text-sm text-secondary-600">
-            {t('having_trouble')}{' '}
+            Sorun mu yaşıyorsunuz?{' '}
             <a href="mailto:destek@dijipot.com" className="text-primary font-semibold hover:underline">
-              {t('contact_support')}
+              Destek ekibimize yazın
             </a>
           </p>
         </div>
