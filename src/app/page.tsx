@@ -6,15 +6,15 @@ import DarkModeToggle from '@/components/DarkModeToggle'
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-gray-50">
+    <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-800">
       {/* Header Navigation */}
-      <header className="bg-white shadow-sm fixed top-0 left-0 right-0 z-50">
+      <header className="bg-white dark:bg-gray-900 shadow-sm fixed top-0 left-0 right-0 z-50">
         <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             {/* Logo */}
             <div className="flex items-center gap-2">
               <Camera className="h-8 w-8 text-primary" />
-              <span className="text-2xl font-bold text-secondary-800">Dijipot</span>
+              <span className="text-2xl font-bold text-secondary-800 dark:text-white">Dijipot</span>
             </div>
       
             {/* Navigation Links */}
