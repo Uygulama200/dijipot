@@ -58,12 +58,15 @@ export default function Home() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/kayit" className="btn-primary text-lg px-8 py-4">
-              Ücretsiz Dene
+              Ücretsiz Başla
             </Link>
-            <Link href="/giris" className="btn-outline text-lg px-8 py-4">
-              Giriş Yap
+            <Link href="/fiyatlandirma" className="btn-outline text-lg px-8 py-4">
+              Fiyatları Görüntüle
             </Link>
           </div>
+          <p className="text-sm text-secondary-500 mt-4">
+            💳 Kredi kartı gerektirmez • 🎁 100 ücretsiz fotoğraf kredisi
+          </p>
         </div>
       </section>
 
@@ -161,7 +164,105 @@ export default function Home() {
           </div>
         </div>
       </section>
-
+      {/* Pricing Teaser Section */}
+      <section id="fiyatlandirma-ozet" className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-secondary-800 mb-4">
+              Basit ve Şeffaf Fiyatlandırma
+            </h2>
+            <p className="text-xl text-secondary-500 max-w-2xl mx-auto">
+              Tek seferlik ödeme yapın, fotoğraf kredilerinizi kullanın. Abonelik yok.
+            </p>
+          </div>
+      
+          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            {/* Free */}
+            <div className="card text-center hover:shadow-xl transition-shadow">
+              <div className="mb-4">
+                <div className="text-secondary-600 font-semibold mb-2">Ücretsiz</div>
+                <div className="text-4xl font-bold text-secondary-800">$0</div>
+              </div>
+              <p className="text-secondary-500 mb-6">100 fotoğraf kredisi</p>
+              <ul className="text-sm text-secondary-600 space-y-2 mb-6 text-left">
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  5 etkinliğe kadar
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  Temel yüz tanıma
+                </li>
+              </ul>
+              <Link href="/kayit" className="btn-outline w-full">
+                Başla
+              </Link>
+            </div>
+      
+            {/* Intermediate - Popular */}
+            <div className="card text-center relative border-2 border-primary hover:shadow-xl transition-shadow">
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-white px-4 py-1 rounded-full text-sm font-semibold">
+                ⭐ En Popüler
+              </div>
+              <div className="mb-4 mt-4">
+                <div className="text-secondary-600 font-semibold mb-2">Intermediate</div>
+                <div className="text-4xl font-bold text-secondary-800">$499</div>
+              </div>
+              <p className="text-secondary-500 mb-6">2,000 fotoğraf kredisi</p>
+              <ul className="text-sm text-secondary-600 space-y-2 mb-6 text-left">
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  Sınırsız etkinlik
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  Yüksek çözünürlük
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  Toplu işlemler
+                </li>
+              </ul>
+              <Link href="/fiyatlandirma" className="btn-primary w-full">
+                Detayları Gör
+              </Link>
+            </div>
+      
+            {/* Professional */}
+            <div className="card text-center hover:shadow-xl transition-shadow">
+              <div className="mb-4">
+                <div className="text-secondary-600 font-semibold mb-2">Professional</div>
+                <div className="text-4xl font-bold text-secondary-800">$999</div>
+              </div>
+              <p className="text-secondary-500 mb-6">5,000 fotoğraf kredisi</p>
+              <ul className="text-sm text-secondary-600 space-y-2 mb-6 text-left">
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  Öncelikli destek
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  Gelişmiş analitik
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  API erişimi
+                </li>
+              </ul>
+              <Link href="/fiyatlandirma" className="btn-outline w-full">
+                Detayları Gör
+              </Link>
+            </div>
+          </div>
+      
+          <div className="text-center mt-8">
+            <Link href="/fiyatlandirma" className="text-primary hover:underline font-semibold">
+              Tüm planları ve özellikleri görüntüle →
+            </Link>
+          </div>
+        </div>
+      </section>
+      
       {/* CTA Section */}
       <section className="bg-primary py-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
