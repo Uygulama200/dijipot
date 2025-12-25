@@ -92,6 +92,15 @@ export default function LoginPage() {
                 />
               </div>
             </div>
+            
+            <div className="flex items-center justify-end">
+              <Link 
+                href="/sifremi-unuttum" 
+                className="text-sm text-primary hover:underline"
+              >
+                Şifremi Unuttum
+              </Link>
+            </div>
 
             <button
               type="submit"
