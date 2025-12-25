@@ -3,12 +3,14 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { Camera, Mail, Lock, User, Phone, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import toast from 'react-hot-toast'
 
 export default function RegisterPage() {
   const router = useRouter()
+  const t = useTranslations('auth')
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
@@ -19,51 +21,71 @@ export default function RegisterPage() {
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (formData.password !== formData.passwordConfirm) {
-      toast.error('Şifreler eşleşmiyor')
-      return
-    }
+  e.preventDefault()
+  
+  if (formData.password !== formData.passwordConfirm) {
+    toast.error('Şifreler eşleşmiyor')
+    return
+  }
 
-    if (formData.password.length < 6) {
-      toast.error('Şifre en az 6 karakter olmalıdır')
-      return
-    }
+  if (formData.password.length < 6) {
+    toast.error('Şifre en az 6 karakter olmalıdır')
+    return
+  }
 
-    setLoading(true)
+  setLoading(true)
 
-    try {
-      // Create auth user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-      })
-
-      if (authError) {
-        toast.error('Kayıt başarısız: ' + authError.message)
-        return
-      }
-
-      // Create studio record
-      if (authData.user) {
-        const { error: studioError } = await supabase
-          .from('studios')
-          .insert({
-            id: authData.user.id,
-            email: formData.email,
-            name: formData.name,
-            phone: formData.phone,
-          })
-
-        if (studioError) {
-          console.error('Studio creation error:', studioError)
+  try {
+    // Create auth user with email verification
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: formData.email,
+      password: formData.password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        data: { 
+          full_name: formData.name,
+          phone: formData.phone 
         }
       }
+    })
 
-      toast.success('Kayıt başarılı! Giriş yapabilirsiniz.')
-      router.push('/giris')
-    } catch (error) {
+    if (authError) {
+      toast.error('Kayıt başarısız: ' + authError.message)
+      return
+    }
+
+    // Create studio record
+    if (authData.user) {
+      const { error: studioError } = await supabase
+        .from('studios')
+        .insert({
+          id: authData.user.id,
+          email: formData.email,
+          name: formData.name,
+          phone: formData.phone,
+        })
+
+      if (studioError) {
+        console.error('Studio creation error:', studioError)
+      }
+    }
+
+    // E-posta doğrulama gerekiyorsa
+    if (authData?.user && !authData.user.confirmed_at) {
+      toast.success('Kayıt başarılı! Lütfen e-postanızı kontrol edin.')
+      router.push('/kayit/onay-bekliyor')
+      return
+    }
+
+    // Otomatik doğrulandıysa (test modu)
+    toast.success('Kayıt başarılı! Giriş yapabilirsiniz.')
+    router.push('/giris')
+  } catch (error) {
+    toast.error('Bir hata oluştu')
+  } finally {
+    setLoading(false)
+  }
+} catch (error) {
       toast.error('Bir hata oluştu')
     } finally {
       setLoading(false)
