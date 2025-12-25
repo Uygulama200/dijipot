@@ -6,20 +6,39 @@ import { Camera, Zap, Users, QrCode, Upload, Bell, Download, CheckCircle } from 
 export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
+      {/* Header Navigation */}
+      <header className="bg-white shadow-sm fixed top-0 left-0 right-0 z-50">
         <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
+          <div className="flex items-center justify-between">
+            {/* Logo */}
             <div className="flex items-center gap-2">
               <Camera className="h-8 w-8 text-primary" />
               <span className="text-2xl font-bold text-secondary-800">Dijipot</span>
             </div>
-            <div className="flex gap-4">
-              <Link href="/giris" className="text-secondary-600 hover:text-secondary-800 font-medium">
+      
+            {/* Navigation Links */}
+            <div className="hidden md:flex items-center gap-8">
+              <a href="#ozellikler" className="text-secondary-600 hover:text-primary transition-colors">
+                Özellikler
+              </a>
+              <a href="#nasil-calisir" className="text-secondary-600 hover:text-primary transition-colors">
+                Nasıl Çalışır?
+              </a>
+              <Link href="/fiyatlandirma" className="text-secondary-600 hover:text-primary transition-colors">
+                Fiyatlandırma
+              </Link>
+              <Link href="/giris" className="text-secondary-600 hover:text-secondary-900">
                 Giriş Yap
               </Link>
+              <Link href="/kayit" className="btn-primary">
+                Ücretsiz Başla
+              </Link>
+            </div>
+      
+            {/* Mobile Menu Button */}
+            <div className="md:hidden">
               <Link href="/kayit" className="btn-primary text-sm">
-                Ücretsiz Dene
+                Başla
               </Link>
             </div>
           </div>
