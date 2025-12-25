@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { Camera, Zap, Users, QrCode, Upload, Bell, Download, CheckCircle } from 'lucide-react'
+import DarkModeToggle from '@/components/DarkModeToggle'
 
 export default function Home() {
   return (
@@ -27,6 +28,7 @@ export default function Home() {
               <Link href="/fiyatlandirma" className="text-secondary-600 hover:text-primary transition-colors">
                 Fiyatlandırma
               </Link>
+              <DarkModeToggle /> {/* 👈 BUNU EKLEYİN */}
               <Link href="/giris" className="text-secondary-600 hover:text-secondary-900">
                 Giriş Yap
               </Link>
