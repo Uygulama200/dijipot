@@ -1,1 +1,9 @@
-
+{
+  "dashboard": "Panel",
+  "events": "Etkinlikler",
+  "photos": "Fotoğraflar",
+  "participants": "Katılımcılar",
+  "settings": "Ayarlar",
+  "create_event": "Etkinlik Oluştur",
+  "upload_photos": "Fotoğraf Yükle"
+}
