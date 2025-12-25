@@ -1,1 +1,14 @@
-
+{
+  "app_name": "Dijipot",
+  "loading": "Yükleniyor...",
+  "error": "Hata",
+  "success": "Başarılı",
+  "cancel": "İptal",
+  "save": "Kaydet",
+  "delete": "Sil",
+  "edit": "Düzenle",
+  "close": "Kapat",
+  "back": "Geri",
+  "next": "İleri",
+  "submit": "Gönder"
+}
