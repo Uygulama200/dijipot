@@ -678,6 +678,22 @@ export default function EventDetailPage() {
             <div className="flex items-center gap-3">
               <DarkModeToggle />
               <button
+                onClick={refreshTokens}
+                disabled={processing}
+                className="btn-outline flex items-center gap-2"
+              >
+                {processing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Yenileniyor...
+                  </>
+                ) : (
+                  <>
+                    🔄 Yüz Tokenlarını Yenile
+                  </>
+                )}
+              </button>
+              <button
                 onClick={openEditModal}
                 className="btn-outline flex items-center gap-2"
               >
