@@ -622,7 +622,31 @@ export default function EventDetailPage() {
       setDeleting(false)
     }
   }
-
+  const refreshTokens = async () => {
+    if (!confirm('Tüm yüz tokenları yenilenecek. Devam?')) return
+    
+    setProcessing(true)
+    try {
+      const response = await fetch('/api/refresh-face-tokens', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId: event?.id })
+      })
+      
+      const data = await response.json()
+      
+      if (data.success) {
+        toast.success(`${data.totalFaces} yüz yenilendi!`)
+        loadEventData()
+      } else {
+        toast.error('Hata oluştu')
+      }
+    } catch (error) {
+      toast.error('Yenileme başarısız')
+    } finally {
+      setProcessing(false)
+    }
+  }
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
