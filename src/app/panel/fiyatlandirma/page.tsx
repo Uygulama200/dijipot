@@ -6,6 +6,8 @@ import { Check, Zap, Crown, Rocket, Sparkles } from 'lucide-react'
 import { getAllPlans } from '@/lib/subscription'
 import type { SubscriptionPlan } from '@/lib/supabase'
 import toast from 'react-hot-toast'
+import DarkModeToggle from '@/components/DarkModeToggle'
+import Link from 'next/link'
 
 export default function PricingPage() {
   const router = useRouter()
@@ -68,23 +70,35 @@ export default function PricingPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      {/* Dark Mode Toggle - Fixed Top Right */}
+      <div className="fixed top-6 right-6 z-50">
+        <DarkModeToggle />
+      </div>
+
+      {/* Back to Home Link */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+        <Link href="/" className="text-primary hover:underline">
+          ← Ana Sayfaya Dön
+        </Link>
+      </div>
+
       {/* Header */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-12 text-center">
-        <div className="inline-block mb-4 px-4 py-2 bg-primary/10 rounded-full">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-12 text-center">
+        <div className="inline-block mb-4 px-4 py-2 bg-primary/10 dark:bg-primary/20 rounded-full">
           <span className="text-primary font-semibold text-sm">💎 Basit ve Şeffaf Fiyatlandırma</span>
         </div>
-        <h1 className="text-5xl font-bold text-secondary-900 mb-6">
+        <h1 className="text-5xl font-bold text-secondary-900 dark:text-white mb-6">
           Size Uygun Planı Seçin
         </h1>
-        <p className="text-xl text-secondary-600 max-w-2xl mx-auto">
+        <p className="text-xl text-secondary-600 dark:text-gray-400 max-w-2xl mx-auto">
           Tek seferlik ödeme yapın, fotoğraf kredilerinizi kullanın. Abonelik yok, gizli ücret yok.
         </p>
       </div>
@@ -95,7 +109,7 @@ export default function PricingPage() {
           {plans.map((plan) => (
             <div
               key={plan.id}
-              className={`relative bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden ${
+              className={`relative bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-2xl dark:shadow-gray-900/50 transition-all duration-300 overflow-hidden border border-gray-100 dark:border-gray-700 ${
                 plan.is_popular ? 'ring-2 ring-primary transform scale-105' : ''
               }`}
             >
@@ -114,37 +128,37 @@ export default function PricingPage() {
                 </div>
 
                 {/* Plan Name */}
-                <h3 className="text-2xl font-bold text-secondary-900 mb-2">
+                <h3 className="text-2xl font-bold text-secondary-900 dark:text-white mb-2">
                   {plan.name}
                 </h3>
 
                 {/* Price */}
                 <div className="mb-6">
                   <div className="flex items-baseline gap-1">
-                    <span className="text-5xl font-bold text-secondary-900">
+                    <span className="text-5xl font-bold text-secondary-900 dark:text-white">
                       ${plan.price_usd}
                     </span>
                     {plan.slug !== 'free' && (
-                      <span className="text-secondary-500 text-sm">tek seferlik</span>
+                      <span className="text-secondary-500 dark:text-gray-400 text-sm">tek seferlik</span>
                     )}
                   </div>
                   {plan.slug === 'free' && (
-                    <p className="text-secondary-500 text-sm mt-1">Sonsuza kadar ücretsiz</p>
+                    <p className="text-secondary-500 dark:text-gray-400 text-sm mt-1">Sonsuza kadar ücretsiz</p>
                   )}
                   {plan.slug !== 'free' && (
-                    <p className="text-secondary-500 text-sm mt-1">
+                    <p className="text-secondary-500 dark:text-gray-400 text-sm mt-1">
                       ${(plan.price_usd / plan.photo_credits).toFixed(2)}/fotoğraf
                     </p>
                   )}
                 </div>
 
                 {/* Credits */}
-                <div className="mb-6 p-4 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl">
+                <div className="mb-6 p-4 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 rounded-xl">
                   <div className="text-center">
-                    <p className="text-3xl font-bold text-secondary-900">
+                    <p className="text-3xl font-bold text-secondary-900 dark:text-white">
                       {plan.photo_credits.toLocaleString()}
                     </p>
-                    <p className="text-sm text-secondary-600">Fotoğraf Kredisi</p>
+                    <p className="text-sm text-secondary-600 dark:text-gray-300">Fotoğraf Kredisi</p>
                   </div>
                 </div>
 
@@ -155,8 +169,8 @@ export default function PricingPage() {
                     plan.is_popular
                       ? 'bg-gradient-to-r from-primary to-pink-500 text-white hover:shadow-xl transform hover:scale-105'
                       : plan.slug === 'free'
-                      ? 'bg-gray-200 text-secondary-600 cursor-default'
-                      : 'bg-secondary-900 text-white hover:bg-secondary-800 hover:shadow-lg'
+                      ? 'bg-gray-200 dark:bg-gray-700 text-secondary-600 dark:text-gray-400 cursor-default'
+                      : 'bg-secondary-900 dark:bg-primary text-white hover:bg-secondary-800 dark:hover:bg-primary/90 hover:shadow-lg'
                   }`}
                   disabled={plan.slug === 'free'}
                 >
@@ -167,8 +181,8 @@ export default function PricingPage() {
                 <div className="mt-8 space-y-3">
                   {plan.features.map((feature, index) => (
                     <div key={index} className="flex items-start gap-3">
-                      <Check className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
-                      <span className="text-secondary-700 text-sm">{feature}</span>
+                      <Check className="h-5 w-5 text-green-500 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                      <span className="text-secondary-700 dark:text-gray-300 text-sm">{feature}</span>
                     </div>
                   ))}
                 </div>
@@ -178,7 +192,7 @@ export default function PricingPage() {
         </div>
 
         {/* Enterprise Card */}
-        <div className="mt-8 bg-gradient-to-br from-secondary-900 to-secondary-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div className="mt-8 bg-gradient-to-br from-secondary-900 to-secondary-800 dark:from-gray-950 dark:to-gray-900 rounded-2xl shadow-2xl overflow-hidden border border-gray-800">
           <div className="p-12 text-center">
             <div className="inline-block mb-6">
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-white shadow-xl">
@@ -186,12 +200,12 @@ export default function PricingPage() {
               </div>
             </div>
             <h3 className="text-3xl font-bold text-white mb-4">Kurumsal Çözüm</h3>
-            <p className="text-gray-300 text-lg mb-8 max-w-2xl mx-auto">
+            <p className="text-gray-300 dark:text-gray-400 text-lg mb-8 max-w-2xl mx-auto">
               Büyük ölçekli etkinlikler için özel paketler. Sınırsız fotoğraf, özel destek ve SLA garantisi.
             </p>
             <button
               onClick={() => toast.success('Yakında! Şimdilik bizimle iletişime geçin: info@dijipot.com')}
-              className="bg-white text-secondary-900 px-8 py-4 rounded-xl font-bold text-lg hover:bg-gray-100 transition-colors"
+              className="bg-white dark:bg-gray-200 text-secondary-900 px-8 py-4 rounded-xl font-bold text-lg hover:bg-gray-100 dark:hover:bg-gray-300 transition-colors"
             >
               Bizimle İletişime Geçin
             </button>
@@ -201,29 +215,29 @@ export default function PricingPage() {
         {/* Features Grid */}
         <div className="mt-20 grid md:grid-cols-3 gap-8">
           <div className="text-center">
-            <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Check className="h-8 w-8 text-green-600" />
+            <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Check className="h-8 w-8 text-green-600 dark:text-green-400" />
             </div>
-            <h4 className="text-xl font-bold text-secondary-900 mb-2">Ömür Boyu Erişim</h4>
-            <p className="text-secondary-600">
+            <h4 className="text-xl font-bold text-secondary-900 dark:text-white mb-2">Ömür Boyu Erişim</h4>
+            <p className="text-secondary-600 dark:text-gray-400">
               Bir kez ödeyin, kredilerinizi istediğiniz zaman kullanın. Süre sınırı yok.
             </p>
           </div>
           <div className="text-center">
-            <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Zap className="h-8 w-8 text-blue-600" />
+            <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Zap className="h-8 w-8 text-blue-600 dark:text-blue-400" />
             </div>
-            <h4 className="text-xl font-bold text-secondary-900 mb-2">Anında Aktif</h4>
-            <p className="text-secondary-600">
+            <h4 className="text-xl font-bold text-secondary-900 dark:text-white mb-2">Anında Aktif</h4>
+            <p className="text-secondary-600 dark:text-gray-400">
               Ödeme sonrası kredileriniz hemen hesabınıza tanımlanır. Beklemeden başlayın.
             </p>
           </div>
           <div className="text-center">
-            <div className="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Sparkles className="h-8 w-8 text-purple-600" />
+            <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900/30 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Sparkles className="h-8 w-8 text-purple-600 dark:text-purple-400" />
             </div>
-            <h4 className="text-xl font-bold text-secondary-900 mb-2">30 Gün Para İade</h4>
-            <p className="text-secondary-600">
+            <h4 className="text-xl font-bold text-secondary-900 dark:text-white mb-2">30 Gün Para İade</h4>
+            <p className="text-secondary-600 dark:text-gray-400">
               İlk 30 gün içinde memnun kalmazsanız, koşulsuz iade garantisi.
             </p>
           </div>
@@ -231,41 +245,41 @@ export default function PricingPage() {
       </div>
 
       {/* FAQ Section */}
-      <div className="bg-gray-50 py-20">
+      <div className="bg-gray-50 dark:bg-gray-900/50 py-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-center text-secondary-900 mb-12">
+          <h2 className="text-3xl font-bold text-center text-secondary-900 dark:text-white mb-12">
             Sık Sorulan Sorular
           </h2>
           <div className="space-y-6">
-            <div className="bg-white rounded-xl p-6 shadow-sm">
-              <h3 className="font-bold text-lg text-secondary-900 mb-2">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+              <h3 className="font-bold text-lg text-secondary-900 dark:text-white mb-2">
                 Fotoğraf kredileri bitiyor mu?
               </h3>
-              <p className="text-secondary-600">
+              <p className="text-secondary-600 dark:text-gray-400">
                 Hayır! Satın aldığınız krediler ömür boyu geçerlidir. İstediğiniz zaman, istediğiniz etkinlikte kullanabilirsiniz.
               </p>
             </div>
-            <div className="bg-white rounded-xl p-6 shadow-sm">
-              <h3 className="font-bold text-lg text-secondary-900 mb-2">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+              <h3 className="font-bold text-lg text-secondary-900 dark:text-white mb-2">
                 Etkinlik limiti var mı?
               </h3>
-              <p className="text-secondary-600">
+              <p className="text-secondary-600 dark:text-gray-400">
                 Free plan hariç tüm planlarda sınırsız etkinlik oluşturabilirsiniz. Sadece fotoğraf kredileriniz kullanılır.
               </p>
             </div>
-            <div className="bg-white rounded-xl p-6 shadow-sm">
-              <h3 className="font-bold text-lg text-secondary-900 mb-2">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+              <h3 className="font-bold text-lg text-secondary-900 dark:text-white mb-2">
                 Ödeme yöntemleri nelerdir?
               </h3>
-              <p className="text-secondary-600">
+              <p className="text-secondary-600 dark:text-gray-400">
                 Kredi kartı, banka kartı ve havale ile ödeme yapabilirsiniz. Tüm ödemeler SSL ile güvence altındadır.
               </p>
             </div>
-            <div className="bg-white rounded-xl p-6 shadow-sm">
-              <h3 className="font-bold text-lg text-secondary-900 mb-2">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+              <h3 className="font-bold text-lg text-secondary-900 dark:text-white mb-2">
                 Plan yükseltmesi nasıl yapılır?
               </h3>
-              <p className="text-secondary-600">
+              <p className="text-secondary-600 dark:text-gray-400">
                 İstediğiniz zaman daha büyük bir plan satın alabilirsiniz. Yeni krediler mevcut kredilerinize eklenir.
               </p>
             </div>
