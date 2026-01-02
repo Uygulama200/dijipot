@@ -3,15 +3,15 @@ import { createClient } from '@supabase/supabase-js'
 
 const FACEPP_API_KEY = process.env.FACEPP_API_KEY
 const FACEPP_API_SECRET = process.env.FACEPP_API_SECRET
-const MATCH_THRESHOLD = 55 // Daha dengeli eşik
-const DELAY_MS = 1100 // Face++ rate limit için 1.1 saniye bekle
+const MATCH_THRESHOLD = 55
+const DELAY_MS = 1100
+const MAX_FACES_TO_CHECK = 100 // İlk 100 en büyük yüzü kontrol et
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-// DELAY HELPER
 function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
@@ -114,10 +114,10 @@ export async function POST(request: NextRequest) {
     const photoIds = photos.map(p => p.id)
     console.log(`📷 Found ${photoIds.length} photos in event`)
 
-    // 3. Bu fotoğraflara ait face token'ları getir
+    // 3. 🔥 TÜM FACE TOKENS + RECTANGLE (YÜZ BOYUTU) BİLGİSİYLE ÇEK
     const { data: faceTokens, error: tokensError } = await supabase
       .from('face_tokens')
-      .select('photo_id, face_token')
+      .select('id, photo_id, face_token, face_rectangle')
       .in('photo_id', photoIds)
 
     if (tokensError) {
@@ -134,27 +134,34 @@ export async function POST(request: NextRequest) {
 
     console.log(`🎭 Found ${faceTokens.length} face tokens to compare`)
 
-    // 4. Yüz karşılaştırması - 50 TOKEN'A KADAR
+    // 4. 🔥 YÜZ ALANINA GÖRE SIRALA (EN BÜYÜK YÜZLER = EN NET FOTOĞRAFLAR)
+    const sortedTokens = faceTokens
+      .map(ft => {
+        const rect = ft.face_rectangle
+        const area = rect ? rect.width * rect.height : 0
+        return { ...ft, faceArea: area }
+      })
+      .sort((a, b) => b.faceArea - a.faceArea) // Büyükten küçüğe
+      .slice(0, MAX_FACES_TO_CHECK) // İlk 100 en büyük yüz
+
+    console.log(`✨ Sorted by face size. Checking top ${sortedTokens.length} faces`)
+    console.log(`📊 Face area range: ${sortedTokens[0]?.faceArea} - ${sortedTokens[sortedTokens.length - 1]?.faceArea}`)
+
+    // 5. 🔥 HER YÜZÜ AYRI AYRI KONTROL ET (PHOTO_ID CHECK KALDIRILDI)
     const matches: string[] = []
-    const checked = new Set<string>()
+    const matchedPhotoIds = new Set<string>() // Sadece istatistik için
 
-    // 🔥 İlk 50 face token ile karşılaştır (daha fazla eşleşme için)
-    const tokensToCheck = faceTokens.slice(0, 50)
-    console.log(`⏱️ Checking ${tokensToCheck.length} tokens (with ${DELAY_MS}ms delay between requests)`)
+    for (let i = 0; i < sortedTokens.length; i++) {
+      const ft = sortedTokens[i]
 
-    for (let i = 0; i < tokensToCheck.length; i++) {
-      const ft = tokensToCheck[i]
-      
-      if (checked.has(ft.photo_id)) continue
-      checked.add(ft.photo_id)
-
-      console.log(`🔄 [${i + 1}/${tokensToCheck.length}] Comparing with photo ${ft.photo_id}...`)
+      console.log(`🔄 [${i + 1}/${sortedTokens.length}] Comparing face_token ${ft.id} from photo ${ft.photo_id} (area: ${ft.faceArea})...`)
       
       const confidence = await compareFaces(selfieToken, ft.face_token)
       console.log(`📊 Confidence: ${confidence}`)
 
       if (confidence >= MATCH_THRESHOLD) {
         matches.push(ft.photo_id)
+        matchedPhotoIds.add(ft.photo_id)
         
         const { error: insertError } = await supabase
           .from('participant_matches')
@@ -167,41 +174,38 @@ export async function POST(request: NextRequest) {
         if (insertError) {
           console.error('❌ Match insert error:', insertError)
         } else {
-          console.log(`✅ Match saved: ${confidence}%`)
+          console.log(`✅ Match saved: photo ${ft.photo_id} with ${confidence}%`)
         }
       }
 
-      // Son istek değilse BEKLE (rate limit için)
-      if (i < tokensToCheck.length - 1) {
-        console.log(`⏳ Waiting ${DELAY_MS}ms before next request...`)
+      // Rate limit için bekle
+      if (i < sortedTokens.length - 1) {
         await delay(DELAY_MS)
       }
     }
 
-    // 5. Katılımcının eşleşme sayısını güncelle
-    if (matches.length > 0) {
-      const { data: updateData, error: updateError } = await supabase
+    // 6. Katılımcının eşleşme sayısını güncelle
+    const uniquePhotoCount = matchedPhotoIds.size
+
+    if (uniquePhotoCount > 0) {
+      const { error: updateError } = await supabase
         .from('participants')
-        .update({ photo_count: matches.length })
+        .update({ photo_count: uniquePhotoCount })
         .eq('id', participantId)
-        .select()
       
       if (updateError) {
         console.error('❌ Photo count update error:', updateError)
-      } else if (updateData && updateData.length > 0) {
-        console.log(`✅ Photo count updated: ${matches.length}`)
       } else {
-        console.error('⚠️ Update returned no rows - RLS policy issue?')
+        console.log(`✅ Photo count updated: ${uniquePhotoCount} unique photos`)
       }
-    } else {
-      console.log('ℹ️ No matches, photo_count stays 0')
     }
 
-    console.log(`🎉 Total matches: ${matches.length}`)
+    console.log(`🎉 Total matches: ${matches.length} faces across ${uniquePhotoCount} unique photos`)
 
     return NextResponse.json({ 
       success: true, 
-      matchCount: matches.length 
+      matchCount: uniquePhotoCount,
+      totalFaceMatches: matches.length
     })
 
   } catch (error) {
